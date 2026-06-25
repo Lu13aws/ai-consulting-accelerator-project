@@ -354,6 +354,7 @@ Same as ai-platform-project-v1:
 ### Phase 3 — Client-Facing SaaS (optional, future)
 
 - Multi-tenant architecture (each client = isolated workspace)
+- Database: separate `ai-platform-db-consulting` RDS instance required — `ai-platform-db-v2` is shared public infrastructure, not suitable for client data isolation
 - Project history and artifact versioning
 - Export to Word / PDF
 - Custom framework upload per client
