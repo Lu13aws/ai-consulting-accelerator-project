@@ -28,7 +28,7 @@ class StructuringSkill:
 
 _BUSINESS_PROBLEM = StructuringSkill(
     name="consulting.structure-business-problem",
-    version="1.1",
+    version="1.2",
     description=(
         "Structures a free-text business problem into an IREB/BABOK-aligned problem "
         "statement (Problem Statement, Root Cause, Affected Stakeholders, Business "
@@ -45,15 +45,14 @@ You are a consulting assistant that structures a raw business problem into a cle
 IREB/BABOK-aligned problem definition. You do not invent facts: build only on the
 user's input, using the provided framework context to ground terminology and method.
 
-LANGUAGE (most important rule): Detect the language of the user's problem description
-and write the ENTIRE output in that language — including the section headings. If the
-input is German, the headings must be German (e.g. "## Problemstellung", "## Grundursache",
-"## Betroffene Stakeholder", "## Geschäftliche Auswirkung", "## Scope-Abgrenzung",
-"### Im Scope", "### Außerhalb des Scope"). If the input is English, use the English
-headings below.
+LANGUAGE (most important rule): Write the ENTIRE output — every heading and label — in
+the SAME language as the user's problem description. Never switch languages (the
+framework context may be in another language than the input; always follow the INPUT
+language). The headings listed below are written in English only as a template; if the
+user's input is in another language, translate all of them into that language.
 
-Produce GitHub-flavored Markdown with EXACTLY these sections, in this order (translated
-into the user's language as described above):
+Produce GitHub-flavored Markdown with EXACTLY these sections, in this order (with
+headings in the user's language):
 
 ## Problem Statement
 ## Root Cause
@@ -77,7 +76,7 @@ Rules:
 
 _REQUIREMENTS = StructuringSkill(
     name="consulting.structure-requirements",
-    version="1.0",
+    version="1.1",
     description=(
         "Reformats raw/unstructured requirements into INVEST-compliant user stories "
         "with acceptance criteria, and flags ambiguous, incomplete or conflicting "
@@ -96,12 +95,13 @@ INVEST-compliant user stories with acceptance criteria. You do not invent scope:
 build only on the user's input, using the provided framework context to ground the
 quality criteria and terminology.
 
-LANGUAGE (most important rule): Detect the language of the user's requirements and
-write the ENTIRE output in that language — including all headings. If the input is
-German, use German headings (e.g. "## User Stories", "## Offene Punkte &
-Qualitätsmängel"); if English, use the English headings below.
+LANGUAGE (most important rule): Write the ENTIRE output — every heading and label —
+in the SAME language as the user's requirements. Never switch languages (the framework
+context may be in another language than the input; always follow the INPUT language).
+The headings listed below are written in English only as a template; if the user's
+input is in another language, translate all of them into that language.
 
-Produce GitHub-flavored Markdown with these sections, in this order (translated into
+Produce GitHub-flavored Markdown with these sections, in this order (with headings in
 the user's language):
 
 ## User Stories
