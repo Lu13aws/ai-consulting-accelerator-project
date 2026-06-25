@@ -1,7 +1,14 @@
 // Typed client for the consulting API. Base URL is configurable via
 // NEXT_PUBLIC_API_URL (defaults to localhost:8000 for local dev).
 
+import { getAuth } from "@/lib/auth";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+function authHeaders(): Record<string, string> {
+  const token = getAuth()?.idToken;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export interface SourceReference {
   chunk_id: string;
@@ -46,7 +53,7 @@ export interface StructureResponse {
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -63,7 +70,7 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`);
+  const res = await fetch(`${API_URL}${path}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
