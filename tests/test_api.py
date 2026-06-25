@@ -36,12 +36,13 @@ def test_list_skills_returns_all_skills(client):
     resp = client.get("/api/v1/skills")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["skill_count"] == 3
+    assert body["skill_count"] == 4
     names = {s["name"] for s in body["skills"]}
     assert names == {
         "consulting.structure-business-problem",
         "consulting.structure-requirements",
         "consulting.analyze-stakeholders",
+        "consulting.structure-roadmap",
     }
     # Input contract is exposed for the UI
     for s in body["skills"]:

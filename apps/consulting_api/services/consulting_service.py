@@ -30,6 +30,23 @@ from apps.consulting_api.services.skills import DRAFT_DISCLAIMER, SKILLS, get_sk
 
 APP_NAME = "consulting"
 
+_DE_STOPWORDS = (" der ", " die ", " das ", " und ", " für ", " mit ", " nicht ",
+                 " eine ", " einen ", " ich ", " wir ", " soll ", " muss ", " möchte ",
+                 " sich ", " auf ", " von ", " den ", " dem ")
+_EN_STOPWORDS = (" the ", " and ", " for ", " with ", " not ", " a ", " an ", " to ",
+                 " should ", " must ", " we ", " users ", " of ", " on ", " want ")
+
+
+def _detect_language(text: str) -> str:
+    """Lightweight DE/EN detection for structuring inputs (umlauts + stopwords)."""
+    t = f" {text.lower()} "
+    if any(ch in t for ch in "äöüß"):
+        return "de"
+    de = sum(t.count(w) for w in _DE_STOPWORDS)
+    en = sum(t.count(w) for w in _EN_STOPWORDS)
+    return "de" if de > en else "en"
+
+
 _CONSULTING_QA_SYSTEM_PROMPT = """\
 You are a consulting assistant for Business Analysis, Requirements Engineering, \
 Process and Project Management. You answer questions using ONLY the provided \
@@ -183,19 +200,28 @@ class ConsultingService:
 
         provider = get_llm_provider()
 
-        # 2. Retrieve grounding chunks (skill seed + the user's input text)
+        # 2. Retrieve grounding chunks (skill seed + the user's input text).
+        #    Filter to the input language (or language-agnostic chunks) so a
+        #    cross-lingual match can't flip the generated artifact's language.
         results: list[SearchResult] = []
         if request.top_k > 0:
             embedder = Embedder(provider)
-            seed_query = f"{skill.retrieval_seed}\n" + "\n".join(request.inputs.values())
+            input_text = "\n".join(request.inputs.values())
+            seed_query = f"{skill.retrieval_seed}\n{input_text}"
             query_embedding = await embedder.embed_query(seed_query)
             store = VectorStore(self._session)
-            results = await store.search(
+            candidates = await store.search(
                 query_embedding.vector,
-                top_k=request.top_k,
+                top_k=request.top_k * 3,
                 app_name=self._app_name,
                 similarity_threshold=self._similarity_threshold,
             )
+            # Filter by the detected language of each chunk's CONTENT (the stored
+            # language metadata is often "unknown", so it can't be trusted here).
+            lang = _detect_language(input_text)
+            results = [
+                r for r in candidates if _detect_language(r.content) == lang
+            ][: request.top_k]
 
         # 3. Build numbered context + the user's structured input
         context = "\n\n".join(

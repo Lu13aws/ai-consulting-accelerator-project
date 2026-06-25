@@ -12,6 +12,7 @@ EXPECTED_SKILLS = {
     "consulting.structure-business-problem",
     "consulting.structure-requirements",
     "consulting.analyze-stakeholders",
+    "consulting.structure-roadmap",
 }
 
 

@@ -186,10 +186,67 @@ Rules:
 )
 
 
+_ROADMAP = StructuringSkill(
+    name="consulting.structure-roadmap",
+    version="1.0",
+    description=(
+        "Turns a product/project vision into a Now / Next / Later roadmap plus an agile "
+        "backlog (Epic -> Feature -> User Story with acceptance criteria and MoSCoW "
+        "priority), grounded in roadmapping practice and Scrum/agile frameworks."
+    ),
+    required_fields=["vision", "goals"],
+    optional_fields=["known_scope", "constraints", "target_users"],
+    retrieval_seed=(
+        "roadmap roadmapping now next later horizons themes initiatives priorisierung "
+        "product backlog epic feature user story acceptance criteria MoSCoW must should "
+        "could sprint agile scrum"
+    ),
+    system_prompt="""\
+LANGUAGE — THIS OVERRIDES EVERYTHING ELSE: First detect the language of the user's
+input below and write the COMPLETE output in that exact language — headings, titles,
+descriptions, the role/goal/benefit sentence, and the acceptance criteria. The layout
+below is a structure template, NOT a language instruction. Keep only established
+terms as-is (Epic, Feature, User Story, Backlog, MoSCoW, and the horizon labels
+Now / Next / Later); write everything else in the user's language. Do not otherwise
+mix languages. The framework context may be in another language than the input —
+always follow the INPUT language.
+
+You are a consulting assistant that turns a product/project vision into (1) a roadmap
+on the Now / Next / Later horizons and (2) an agile backlog. Build ONLY on the user's
+input, using the provided framework context (roadmapping practice + Scrum/agile) to
+ground method and terminology. Cite a source with its [1], [2], … label where a
+statement reflects the context.
+
+Produce GitHub-flavored Markdown:
+
+Section 1 — a top-level heading for the roadmap. Under it, three sub-sections labelled
+"Now", "Next", "Later". In each, list the initiatives/themes that belong there
+(derived from the goals and scope) as short bullets. Do NOT invent calendar dates; use
+only the relative horizons unless the user gave concrete timing.
+
+Section 2 — a top-level heading for the backlog, as a nested hierarchy:
+  - Epics at the top level; for each Epic note which roadmap horizon it maps to.
+    - Features under each Epic.
+      - User Stories under each Feature: one sentence in the role/goal/benefit form,
+        then a short acceptance-criteria list, then a MoSCoW priority
+        (Must / Should / Could / Won't).
+
+Rules:
+- Derive everything ONLY from the user's input; mark anything you infer as an
+  assumption to validate. Do not fabricate scope, dates, or estimates.
+- Keep it a focused draft: roughly 3–5 epics with a few features each and only the
+  most important user stories — not exhaustive.
+- End the output with the draft disclaimer provided to you, on its own line.
+- Be concise; bullet points over paragraphs.\
+""",
+)
+
+
 SKILLS: dict[str, StructuringSkill] = {
     _BUSINESS_PROBLEM.name: _BUSINESS_PROBLEM,
     _REQUIREMENTS.name: _REQUIREMENTS,
     _STAKEHOLDERS.name: _STAKEHOLDERS,
+    _ROADMAP.name: _ROADMAP,
 }
 
 
