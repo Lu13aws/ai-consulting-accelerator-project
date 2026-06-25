@@ -6,6 +6,7 @@ scoped to app_name="consulting".
 """
 
 import logging
+import os
 
 from aiplatform.settings import settings
 from aiplatform.storage.models import Base
@@ -48,9 +49,13 @@ _PRODUCTION_ORIGINS = [
     "http://localhost:3001",
 ]
 
+# Extra production origins (e.g. the CloudFront URL) can be added at deploy time
+# via CONSULTING_CORS_ORIGINS (comma-separated) without a code change.
+_extra_origins = [o.strip() for o in os.environ.get("CONSULTING_CORS_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.is_development else _PRODUCTION_ORIGINS,
+    allow_origins=["*"] if settings.is_development else [*_PRODUCTION_ORIGINS, *_extra_origins],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )

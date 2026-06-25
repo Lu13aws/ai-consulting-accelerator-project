@@ -13,6 +13,9 @@ venv/
 # uv
 .uv/
 
+# Lambda build staging (created by scripts/deploy.py)
+build/
+
 # Tooling caches
 .pytest_cache/
 .ruff_cache/
