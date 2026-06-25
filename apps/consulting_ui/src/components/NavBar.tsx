@@ -17,21 +17,26 @@ export default function NavBar() {
 
   if (pathname === "/login") return null;
 
+  const linkClass = (href: string) =>
+    `transition hover:text-blue-700 ${
+      pathname === href ? "text-blue-700 font-medium" : "text-slate-600"
+    }`;
+
   return (
-    <nav className="border-b border-zinc-200 dark:border-zinc-800">
+    <nav className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex w-full max-w-3xl items-center gap-4 px-4 py-3 text-sm">
-        <span className="font-semibold">AI Consulting Accelerator</span>
+        <span className="font-semibold text-slate-900">AI Consulting Accelerator</span>
         <div className="ml-auto flex items-center gap-4">
-          <Link href="/" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
+          <Link href="/" className={linkClass("/")}>
             Q&amp;A
           </Link>
-          <Link href="/structure" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
+          <Link href="/structure" className={linkClass("/structure")}>
             Structure
           </Link>
           {auth && (
             <>
-              <span className="text-zinc-400">{auth.email}</span>
-              <button onClick={onLogout} className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
+              <span className="text-slate-400">{auth.email}</span>
+              <button onClick={onLogout} className="text-slate-600 transition hover:text-blue-700">
                 Sign out
               </button>
             </>
