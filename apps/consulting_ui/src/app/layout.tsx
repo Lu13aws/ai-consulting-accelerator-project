@@ -22,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-200">
+    <html lang="en" className={`${inter.variable} h-full bg-slate-950 antialiased`}>
+      <body className="min-h-screen flex flex-col bg-slate-950 text-slate-200">
         <NavBar />
         <AuthGate>{children}</AuthGate>
       </body>

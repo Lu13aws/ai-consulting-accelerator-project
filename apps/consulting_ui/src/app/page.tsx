@@ -42,7 +42,7 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-10">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Framework Q&amp;A</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-400">
           Framework Q&amp;A grounded in IREB, BABOK, BPMN, PMBOK and related standards.
           Answers cite their sources and follow your language (DE/EN).
         </p>
