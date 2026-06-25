@@ -1,0 +1,21 @@
+# Lambda container image for the consulting API.
+#
+# The build context is staged by scripts/deploy.py into build/lambda/ and contains:
+#   requirements.lambda.txt  — third-party deps (aiplatform stripped; copied as source)
+#   aiplatform/              — the aiplatform package, copied from ../ai-platform-project-v1
+#   apps/ scripts/ data/     — the consulting app, ingestion script, and framework PDFs
+#
+# aiplatform is placed on the task root as source (not pip-installed) because it is a
+# local path dependency in this repo, exactly mirroring the platform repo's Lambda build.
+
+FROM public.ecr.aws/lambda/python:3.12
+
+COPY requirements.lambda.txt ./
+RUN pip install --no-cache-dir -r requirements.lambda.txt -t "${LAMBDA_TASK_ROOT}"
+
+COPY aiplatform/ "${LAMBDA_TASK_ROOT}/aiplatform/"
+COPY apps/ "${LAMBDA_TASK_ROOT}/apps/"
+COPY scripts/ "${LAMBDA_TASK_ROOT}/scripts/"
+COPY data/ "${LAMBDA_TASK_ROOT}/data/"
+
+CMD ["apps.consulting_api.lambda_handler.handler"]
