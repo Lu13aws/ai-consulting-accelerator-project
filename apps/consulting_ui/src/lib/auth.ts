@@ -8,6 +8,10 @@ const REGION = process.env.NEXT_PUBLIC_CONSULTING_COGNITO_REGION ?? "eu-central-
 const CLIENT_ID = process.env.NEXT_PUBLIC_CONSULTING_COGNITO_CLIENT_ID ?? "";
 const COGNITO_URL = `https://cognito-idp.${REGION}.amazonaws.com/`;
 
+// Auth is only enforced when a Cognito client id is configured. Without it (e.g.
+// local dev before provisioning the pool) the app runs open so the UI is viewable.
+export const AUTH_CONFIGURED = CLIENT_ID !== "";
+
 const TOKEN_KEY = "consulting_id_token";
 const EXPIRY_KEY = "consulting_token_expiry";
 const EMAIL_KEY = "consulting_email";
