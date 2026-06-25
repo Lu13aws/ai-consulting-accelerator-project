@@ -20,6 +20,29 @@ export interface QueryResponse {
   output_tokens: number;
 }
 
+export interface SkillInfo {
+  name: string;
+  version: string;
+  description: string;
+  required_fields: string[];
+  optional_fields: string[];
+}
+
+export interface SkillsResponse {
+  skill_count: number;
+  skills: SkillInfo[];
+}
+
+export interface StructureResponse {
+  skill: string;
+  version: string;
+  artifact: string;
+  sources: SourceReference[];
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+}
+
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
@@ -39,6 +62,24 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function getJSON<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
 export function query(question: string, topK = 5): Promise<QueryResponse> {
   return postJSON<QueryResponse>("/api/v1/query", { question, top_k: topK });
+}
+
+export function getSkills(): Promise<SkillsResponse> {
+  return getJSON<SkillsResponse>("/api/v1/skills");
+}
+
+export function structure(
+  skill: string,
+  inputs: Record<string, string>,
+  topK = 6,
+): Promise<StructureResponse> {
+  return postJSON<StructureResponse>("/api/v1/structure", { skill, inputs, top_k: topK });
 }

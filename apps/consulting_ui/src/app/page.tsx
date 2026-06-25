@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
+import Markdown from "@/components/Markdown";
+import Sources from "@/components/Sources";
 import { query, type QueryResponse } from "@/lib/api";
 
 const EXAMPLES = [
@@ -41,7 +41,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-10">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">AI Consulting Accelerator</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Framework Q&amp;A</h1>
         <p className="text-sm text-zinc-500">
           Framework Q&amp;A grounded in IREB, BABOK, BPMN, PMBOK and related standards.
           Answers cite their sources and follow your language (DE/EN).
@@ -96,39 +96,8 @@ export default function Home() {
 
       {result && (
         <section className="flex flex-col gap-4">
-          <article className="prose prose-sm prose-zinc max-w-none rounded-lg border border-zinc-200 bg-white p-4 dark:prose-invert dark:border-zinc-800 dark:bg-zinc-900">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
-          </article>
-
-          {result.sources.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                Sources
-              </h2>
-              <ol className="flex flex-col gap-2">
-                {result.sources.map((s, i) => (
-                  <li
-                    key={s.chunk_id}
-                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"
-                  >
-                    <div className="mb-1 flex flex-wrap items-center gap-2 font-medium text-zinc-700 dark:text-zinc-300">
-                      <span>[{i + 1}]</span>
-                      <span className="font-mono">{s.source_uri}</span>
-                      {s.category && (
-                        <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                          {s.category}
-                          {s.language && s.language !== "unknown" ? ` · ${s.language}` : ""}
-                        </span>
-                      )}
-                      <span className="ml-auto text-zinc-400">score {s.score.toFixed(3)}</span>
-                    </div>
-                    <p className="text-zinc-500">{s.excerpt}…</p>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
+          <Markdown>{result.answer}</Markdown>
+          <Sources sources={result.sources} />
           <p className="text-[11px] text-zinc-400">
             AI-generated draft grounded in cited frameworks — requires human review.
             Model: {result.model} · {result.input_tokens + result.output_tokens} tokens.
