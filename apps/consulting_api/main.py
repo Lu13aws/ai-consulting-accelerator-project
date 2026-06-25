@@ -1,9 +1,11 @@
 """
 Consulting API — FastAPI application.
 
-Phase 1: Framework Q&A (RAG with citations) over the indexed frameworks,
-scoped to app_name="consulting". Structuring routes (/structure) follow later.
+Phase 1: Framework Q&A (RAG with citations) and BA/RE/PM artifact structuring,
+scoped to app_name="consulting".
 """
+
+import logging
 
 from aiplatform.settings import settings
 from aiplatform.storage.models import Base
@@ -13,11 +15,24 @@ from sqlalchemy import create_engine as _create_sync_engine
 
 from apps.consulting_api.api.routes import router
 
-# Ensure the documents/chunks/embeddings tables exist (idempotent — CREATE TABLE
-# IF NOT EXISTS). Uses the psycopg2-compatible ALEMBIC_DATABASE_URL.
-_sync_engine = _create_sync_engine(settings.alembic_database_url)
-Base.metadata.create_all(_sync_engine)
-_sync_engine.dispose()
+logger = logging.getLogger(__name__)
+
+
+def _bootstrap_schema() -> None:
+    """Ensure documents/chunks/embeddings exist (idempotent CREATE TABLE IF NOT EXISTS).
+
+    Best-effort: a missing/unreachable DB must not crash app import (e.g. in tests or
+    during a transient outage). Real requests will surface DB errors per-request.
+    """
+    try:
+        engine = _create_sync_engine(settings.alembic_database_url)
+        Base.metadata.create_all(engine)
+        engine.dispose()
+    except Exception as exc:  # noqa: BLE001 — never fail import on DB bootstrap
+        logger.warning("Schema bootstrap skipped (DB unreachable): %s", exc)
+
+
+_bootstrap_schema()
 
 app = FastAPI(
     title="AI Consulting Accelerator",
