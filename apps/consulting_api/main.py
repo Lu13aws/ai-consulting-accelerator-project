@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine as _create_sync_engine
 
+from apps.consulting_api.api.consulting_routes import router as consulting_router
 from apps.consulting_api.api.routes import router
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+app.include_router(consulting_router, prefix="/api/v1/consulting")
 
 
 @app.get("/health")

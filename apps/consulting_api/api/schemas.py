@@ -67,3 +67,33 @@ class FrameworkDocument(BaseModel):
 class SourcesResponse(BaseModel):
     document_count: int
     documents: list[FrameworkDocument]
+
+
+# ── Consulting-namespaced request bodies (used by the /api/v1/consulting/* UI routes) ──
+
+class ConsultingQueryRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class ProblemRequest(BaseModel):
+    problem_description: str = Field(..., min_length=1)
+    additional_context: str | None = None
+
+
+class RequirementsRequest(BaseModel):
+    requirements: str = Field(..., min_length=1)
+    context: str | None = None
+
+
+class RoadmapRequest(BaseModel):
+    vision: str = Field(..., min_length=1)
+    goals: str = Field(..., min_length=1)
+    known_scope: str | None = None
+    constraints: str | None = None
+    target_users: str | None = None
+
+
+class StakeholdersRequest(BaseModel):
+    # Single free-text field per the UI; mapped to the skill's two required inputs.
+    input: str = Field(..., min_length=1)
