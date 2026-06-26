@@ -31,6 +31,21 @@ export interface StructureResponse {
   output_tokens: number;
 }
 
+export interface SkillInfo {
+  name: string;
+  version: string;
+  description: string;
+  layer: string;
+  required_fields: string[];
+  optional_fields: string[];
+}
+
+async function getJSON<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
@@ -64,4 +79,7 @@ export const api = {
     target_users?: string;
   }) => post<StructureResponse>("/structure/roadmap", input),
   stakeholders: (input: string) => post<StructureResponse>("/stakeholders", { input }),
+  getSkills: () => getJSON<{ skill_count: number; skills: SkillInfo[] }>("/skills"),
+  runSkill: (skill: string, inputs: Record<string, string>) =>
+    post<StructureResponse>("/run", { skill, inputs }),
 };

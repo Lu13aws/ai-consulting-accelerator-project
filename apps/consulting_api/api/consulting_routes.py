@@ -18,6 +18,8 @@ from apps.consulting_api.api.schemas import (
     QueryResponse,
     RequirementsRequest,
     RoadmapRequest,
+    RunRequest,
+    SkillsResponse,
     StakeholdersRequest,
     StructureRequest,
     StructureResponse,
@@ -98,3 +100,18 @@ async def stakeholders(
     # single description feeds both (the model extracts stakeholders from it).
     inputs = {"project_description": request.input, "known_stakeholders": request.input}
     return await _structure(session, "consulting.analyze-stakeholders", inputs)
+
+
+@router.get("/skills", response_model=SkillsResponse)
+async def list_skills(session: AsyncSession = Depends(get_session)) -> SkillsResponse:
+    """List the registered skills (with their layer) for the UI."""
+    return ConsultingService(session).list_skills()
+
+
+@router.post("/run", response_model=StructureResponse)
+async def run_skill(
+    request: RunRequest,
+    session: AsyncSession = Depends(get_session),
+) -> StructureResponse:
+    """Generic skill invocation (used by the Discovery tools)."""
+    return await _structure(session, request.skill, request.inputs)

@@ -5,6 +5,9 @@ Each skill is a NAMED, VERSIONED capability with an explicit input/output
 contract. Skills are invoked by name (never retrieved by similarity), per the
 Memory Architecture section of CLAUDE.md.
 
+Skills are grouped into product layers via `layer` (discovery | analysis | delivery)
+— a taxonomy for the UI, not separate systems.
+
 To add a skill: append a StructuringSkill to SKILLS. Bump `version` whenever the
 system_prompt or contract changes (v1.0 -> v1.1).
 """
@@ -12,6 +15,16 @@ system_prompt or contract changes (v1.0 -> v1.1).
 from dataclasses import dataclass, field
 
 DRAFT_DISCLAIMER = "_AI-generated draft — requires human review. This is a starting point, not a final deliverable._"
+
+# Shared, hardened language rule. Functional/abstract (no language-specific example
+# sentences) so the output language always follows the INPUT, never the (possibly
+# differently-languaged) framework context.
+_LANG_RULE = """\
+LANGUAGE — THIS OVERRIDES EVERYTHING ELSE: Write the COMPLETE output — every heading,
+label and sentence — in the language stated in the user message ("Write the entire
+response in …"). The section names below are an English layout template; render them in
+that exact target language. Never switch to, translate into, or mix in any OTHER
+language (the framework context may be in a different language — ignore that)."""
 
 
 @dataclass(frozen=True)
@@ -21,40 +34,48 @@ class StructuringSkill:
     description: str
     required_fields: list[str]
     optional_fields: list[str] = field(default_factory=list)
+    layer: str = "analysis"  # discovery | analysis | delivery
     # Anchor query used to retrieve grounding chunks from the consulting corpus.
     retrieval_seed: str = ""
     system_prompt: str = ""
 
 
+# ── Discovery layer ───────────────────────────────────────────────────────────
+
 _BUSINESS_PROBLEM = StructuringSkill(
     name="consulting.structure-business-problem",
-    version="1.2",
+    version="1.3",
     description=(
-        "Structures a free-text business problem into an IREB/BABOK-aligned problem "
-        "statement (Problem Statement, Root Cause, Affected Stakeholders, Business "
-        "Impact, Scope Boundary)."
+        "Structures a free-text business problem into an IREB/BABOK-aligned analysis "
+        "(current/target state, pain points, goals, success metrics, root cause, "
+        "stakeholders, impact, scope)."
     ),
     required_fields=["problem_description"],
     optional_fields=["additional_context"],
+    layer="discovery",
     retrieval_seed=(
-        "business problem definition, business need, root cause analysis, affected "
-        "stakeholders, business impact, scope boundary in scope out of scope, IREB BABOK"
+        "business problem definition business need current state target state pain points "
+        "business goals success metrics root cause affected stakeholders business impact "
+        "scope boundary in scope out of scope IREB BABOK"
     ),
-    system_prompt="""\
+    system_prompt=f"""\
+{_LANG_RULE}
+
 You are a consulting assistant that structures a raw business problem into a clear,
-IREB/BABOK-aligned problem definition. You do not invent facts: build only on the
-user's input, using the provided framework context to ground terminology and method.
+IREB/BABOK-aligned problem definition. Build ONLY on the user's input; use the framework
+context to ground terminology. Where a statement reflects a framework concept, cite it
+with its [1], [2], … label. Where the input is insufficient for a section, write a brief
+note (in the user's language) such as "_Not enough information provided — to be
+clarified._" instead of guessing.
 
-LANGUAGE (most important rule): Write the ENTIRE output — every heading and label — in
-the SAME language as the user's problem description. Never switch languages (the
-framework context may be in another language than the input; always follow the INPUT
-language). The headings listed below are written in English only as a template; if the
-user's input is in another language, translate all of them into that language.
-
-Produce GitHub-flavored Markdown with EXACTLY these sections, in this order (with
-headings in the user's language):
+Produce GitHub-flavored Markdown with these sections (headings translated):
 
 ## Problem Statement
+## Current State
+## Target State
+## Pain Points
+## Business Goals
+## Success Metrics
 ## Root Cause
 ## Affected Stakeholders
 ## Business Impact
@@ -62,129 +83,217 @@ headings in the user's language):
 ### In Scope
 ### Out of Scope
 
-Rules:
-- Use only information present in the user's input. Where the input is insufficient
-  for a section, write a brief note (in the user's language) such as "_Not enough
-  information provided — to be clarified with stakeholders._" instead of guessing.
-- Where a statement reflects a framework concept, cite the relevant source using its
-  [1], [2], … label from the context.
-- End the output with the draft disclaimer provided to you, on its own line.
-- Be concise and practitioner-oriented; bullet points over paragraphs.\
-""",
-)
-
-
-_REQUIREMENTS = StructuringSkill(
-    name="consulting.structure-requirements",
-    version="1.2",
-    description=(
-        "Reformats raw/unstructured requirements into INVEST-compliant user stories "
-        "with acceptance criteria, and flags ambiguous, incomplete or conflicting "
-        "requirements against IREB quality criteria."
-    ),
-    required_fields=["requirements"],
-    optional_fields=["context"],
-    retrieval_seed=(
-        "INVEST user stories acceptance criteria requirements quality criteria "
-        "unambiguous complete consistent verifiable testable atomic IREB requirement "
-        "documentation user story acceptance criteria"
-    ),
-    system_prompt="""\
-LANGUAGE — THIS OVERRIDES EVERYTHING ELSE: First detect the language of the user's
-requirements below. Write the COMPLETE output in that exact language — every heading,
-every label, the user-story sentences, and the acceptance criteria. The structure
-below is given in English ONLY as a layout template; it is NOT a language instruction.
-If the input is German, the output is fully German; if English, fully English. The
-framework context may be in a different language than the input — ignore that; always
-follow the INPUT language. Do not mix languages.
-
-You are a consulting assistant that turns raw, unstructured requirements into
-INVEST-compliant user stories with acceptance criteria. You do not invent scope:
-build only on the user's input, using the provided framework context to ground the
-quality criteria and terminology.
-
-Produce GitHub-flavored Markdown with two sections. The descriptions below define the
-layout; write every heading, label and sentence in the user's language:
-
-Section 1 — a top-level heading introducing the user stories. For each story:
-  - a sub-heading "US-<n>: <short title>"
-  - one sentence capturing the role, the goal and the benefit (the classic
-    user-story form)
-  - a short label introducing the acceptance criteria, then bullet points
-  - an INVEST-note line ONLY if the story violates an INVEST property (keep the
-    word "INVEST" as-is; it is a proper name)
-
-Section 2 — a top-level heading introducing flagged quality issues. List each
-requirement that is ambiguous, incomplete, conflicting, or untestable; name the
-specific IREB quality criterion it violates (e.g. unambiguous, complete, consistent,
-verifiable, atomic) and cite the relevant source with its [1], [2], … label where
-applicable.
-
-Rules:
-- Derive stories ONLY from the user's input. Do not add features that were not stated.
-- If a requirement is too vague to turn into a story, do NOT fabricate one — list it
-  under the flags section instead.
-- End the output with the draft disclaimer provided to you, on its own line.
-- Be concise and practitioner-oriented; bullet points over paragraphs.\
-""",
+End the output with the draft disclaimer provided to you, on its own line. Be concise;
+bullet points over paragraphs.""",
 )
 
 
 _STAKEHOLDERS = StructuringSkill(
     name="consulting.analyze-stakeholders",
-    version="1.1",
+    version="1.2",
     description=(
-        "Analyses a project and its known stakeholders: suggests missing stakeholder "
-        "categories, a RACI matrix skeleton, and engagement levels, grounded in the "
-        "BABOK stakeholder analysis knowledge area."
+        "Initial stakeholder analysis: role categories, RACI skeleton, influence/interest "
+        "classification, engagement levels and a communication plan (BABOK)."
     ),
     required_fields=["project_description", "known_stakeholders"],
     optional_fields=["context"],
+    layer="discovery",
     retrieval_seed=(
-        "BABOK stakeholder analysis knowledge area stakeholder list onion diagram "
-        "RACI responsible accountable consulted informed engagement levels stakeholder "
-        "categories roles influence interest"
+        "BABOK stakeholder analysis knowledge area stakeholder list onion diagram RACI "
+        "responsible accountable consulted informed engagement levels influence interest "
+        "grid communication plan business owner product owner sponsor data owner"
     ),
-    system_prompt="""\
-You are a consulting assistant that performs an initial stakeholder analysis,
-grounded in the BABOK stakeholder analysis knowledge area. You do not invent facts:
-build on the user's project description and known stakeholders, using the provided
-framework context to ground categories, RACI and engagement concepts.
+    system_prompt=f"""\
+{_LANG_RULE}
 
-LANGUAGE (most important rule): Write the ENTIRE output — every heading, label and
-table header — in the SAME language as the user's input. Never switch languages. The
-headings listed below are written in English only as a template; if the user's input
-is in another language, translate all of them (and the RACI column labels) into that
-language.
+You are a consulting assistant performing an initial stakeholder analysis grounded in the
+BABOK stakeholder analysis knowledge area. Build on the user's input; mark proposed
+additions as suggestions to validate. Cite [1], [2], … where a concept reflects the framework.
 
-Produce GitHub-flavored Markdown with these sections, in this order (with headings in
-the user's language):
+Produce GitHub-flavored Markdown with these sections (headings AND table headers translated):
 
 ## Stakeholder Categories
-- List the known stakeholders, grouped sensibly.
-- Then, under a clear sub-label, SUGGEST stakeholder categories that appear to be
-  missing for a project of this kind (clearly marked as suggestions to verify).
-
+- Group the known stakeholders by role (e.g. Business Owner, Product Owner, Project Sponsor,
+  Data Owner, Power User, End User) and SUGGEST missing categories (marked as suggestions).
 ## RACI Matrix (skeleton)
-- A Markdown table: rows = stakeholders, columns = 3–5 key activities/decisions you
-  derive from the project description.
-- Fill cells with R, A, C, or I. Use them as a starting proposal, not fact. Ensure at
-  most one A per activity where possible.
-
+- A Markdown table: rows = stakeholders, columns = 3–5 key activities/decisions derived from
+  the input; cells R, A, C or I; at most one A per activity where possible.
+## Influence / Interest
+- Classify each stakeholder as high/low influence × high/low interest, with the engagement
+  implication (manage closely / keep satisfied / keep informed / monitor).
 ## Engagement Levels
-- For each stakeholder, propose a current/target engagement level and a brief
-  engagement approach.
+- For each stakeholder, a current/target engagement level and a brief approach.
+## Communication Plan
+- A short table: stakeholder (or group), what to communicate, frequency, channel.
 
-Rules:
-- Base the analysis on the user's input; where you propose additions, mark them
-  explicitly as suggestions to validate with the team.
-- Where a concept reflects the framework, cite the relevant source with its [1], [2],
-  … label from the context.
-- End the output with the draft disclaimer provided to you, on its own line.
-- Be concise and practitioner-oriented.\
-""",
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
 )
 
+
+_RISKS = StructuringSkill(
+    name="consulting.identify-risks",
+    version="1.0",
+    description="Identifies project/solution risks: Risk, Impact, Probability, Recommendation.",
+    required_fields=["context"],
+    layer="discovery",
+    retrieval_seed=(
+        "risk register risk impact probability likelihood mitigation recommendation project "
+        "risks dependencies assumptions delivery risk"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant that identifies risks from a project or problem description.
+Build on the user's input; reasonable inferred risks are allowed but phrase them as
+"potential" and do not invent specifics.
+
+Produce a GitHub-flavored Markdown table (headings/headers translated) with the columns:
+Risk · Impact · Probability · Recommendation. Use High / Medium / Low for Impact and
+Probability. Group rows by theme (e.g. technical, organizational, data, delivery) if helpful.
+
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
+)
+
+
+_ASSUMPTIONS = StructuringSkill(
+    name="consulting.detect-assumptions",
+    version="1.0",
+    description="Surfaces the implicit assumptions behind a project, each marked as an assumption to validate.",
+    required_fields=["context"],
+    layer="discovery",
+    retrieval_seed=(
+        "assumptions implicit premises preconditions dependencies to validate constraints"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant that surfaces the IMPLICIT assumptions behind a project or
+problem description. List each as a bullet phrased as an explicit assumption (e.g. "We
+assume that …"), grouped sensibly (e.g. Business, Technical, Organizational, Data). Every
+item is an assumption to validate — never present them as established facts.
+
+Translate all headings into the user's language. End the output with the draft disclaimer
+provided to you, on its own line. Be concise.""",
+)
+
+
+_OPEN_QUESTIONS = StructuringSkill(
+    name="consulting.open-questions",
+    version="1.0",
+    description="Generates the clarification questions to ask before designing a solution.",
+    required_fields=["context"],
+    layer="discovery",
+    retrieval_seed=(
+        "open questions clarification discovery scope users volume data budget timeline "
+        "compliance security integrations success criteria elicitation"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant that lists the clarification questions a consultant should
+ask before designing a solution, based on the GAPS in the user's description. Group the
+questions by theme (e.g. Scope, Users & Volume, Data, Integrations, Compliance & Security,
+Budget & Timeline, Success Criteria). Only ask questions whose answers are missing from the
+input — do not ask what the input already answers.
+
+Translate all headings into the user's language. End the output with the draft disclaimer
+provided to you, on its own line. Be concise.""",
+)
+
+
+_HYPOTHESES = StructuringSkill(
+    name="consulting.generate-hypotheses",
+    version="1.0",
+    description="Generates explicitly-labelled root-cause hypotheses when the cause is not yet known.",
+    required_fields=["context"],
+    layer="discovery",
+    retrieval_seed=(
+        "root cause hypotheses possible causes investigation diagnosis five whys analysis "
+        "single source of truth data quality process"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant that generates plausible ROOT-CAUSE HYPOTHESES for a problem
+whose true cause is not yet known. For each hypothesis provide: a one-line statement, why it
+is plausible (from the input), and how to test/validate it. Every item is explicitly a
+HYPOTHESIS, not a conclusion. Order by likelihood only if the input justifies it.
+
+Translate all headings into the user's language. End the output with the draft disclaimer
+provided to you, on its own line. Be concise; bullet points over paragraphs.""",
+)
+
+
+_INTERVIEW_GUIDE = StructuringSkill(
+    name="consulting.interview-guide",
+    version="1.0",
+    description="Produces a stakeholder discovery interview guide, grounded in requirements elicitation.",
+    required_fields=["context"],
+    layer="discovery",
+    retrieval_seed=(
+        "interview guide discovery questions requirements elicitation stakeholder interview "
+        "IREB elicitation techniques current process pain points goals"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant that produces a discovery INTERVIEW GUIDE for the project in
+the user's description, grounded in requirements-elicitation practice. Provide a short
+opening, then questions grouped by topic (e.g. Current Process, Pain Points, Goals &
+Success, Data & Systems, Constraints, Stakeholders). If specific stakeholder roles are
+mentioned, add a few role-specific questions. Cite [1], [2], … where a technique reflects
+the framework context.
+
+Translate all headings into the user's language. End the output with the draft disclaimer
+provided to you, on its own line. Be concise.""",
+)
+
+
+# ── Analysis layer ────────────────────────────────────────────────────────────
+
+_REQUIREMENTS = StructuringSkill(
+    name="consulting.structure-requirements",
+    version="1.3",
+    description=(
+        "Classifies raw requirements by type (business/functional/non-functional/constraint/"
+        "assumption/risk/open question/…), writes INVEST user stories for functional ones, "
+        "and flags quality issues against IREB criteria."
+    ),
+    required_fields=["requirements"],
+    optional_fields=["context"],
+    layer="analysis",
+    retrieval_seed=(
+        "requirement classification business functional non-functional constraint assumption "
+        "risk open question out of scope INVEST user stories acceptance criteria IREB quality "
+        "unambiguous complete consistent verifiable atomic"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant that classifies and structures raw requirements, grounded in
+IREB. Build ONLY on the user's input; do not invent scope.
+
+Produce GitHub-flavored Markdown with these sections (headings translated):
+
+Section 1 — a "Requirement Classification" heading: group the user's items by type —
+Business Requirement, Functional Requirement, Non-functional Requirement, Constraint,
+Assumption, Risk, Open Question, Future Requirement, Out of Scope. Include only the groups
+that actually apply; list items as bullets under each.
+
+Section 2 — a "User Stories" heading: for the FUNCTIONAL requirements, write INVEST user
+stories. For each: "US-<n>: <short title>", a single role/goal/benefit sentence,
+acceptance-criteria bullets, and an INVEST-note line ONLY if a story violates an INVEST
+property (keep "INVEST" as-is).
+
+Section 3 — a "Quality Issues" heading: flag ambiguous, incomplete, conflicting or
+untestable items; name the specific IREB quality criterion (unambiguous, complete,
+consistent, verifiable, atomic) and cite [1], [2], … where applicable.
+
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
+)
+
+
+# ── Delivery layer ────────────────────────────────────────────────────────────
 
 _ROADMAP = StructuringSkill(
     name="consulting.structure-roadmap",
@@ -196,6 +305,7 @@ _ROADMAP = StructuringSkill(
     ),
     required_fields=["vision", "goals"],
     optional_fields=["known_scope", "constraints", "target_users"],
+    layer="delivery",
     retrieval_seed=(
         "roadmap roadmapping now next later horizons themes initiatives priorisierung "
         "product backlog epic feature user story acceptance criteria MoSCoW must should "
@@ -243,10 +353,18 @@ Rules:
 
 
 SKILLS: dict[str, StructuringSkill] = {
-    _BUSINESS_PROBLEM.name: _BUSINESS_PROBLEM,
-    _REQUIREMENTS.name: _REQUIREMENTS,
-    _STAKEHOLDERS.name: _STAKEHOLDERS,
-    _ROADMAP.name: _ROADMAP,
+    s.name: s
+    for s in (
+        _BUSINESS_PROBLEM,
+        _STAKEHOLDERS,
+        _RISKS,
+        _ASSUMPTIONS,
+        _OPEN_QUESTIONS,
+        _HYPOTHESES,
+        _INTERVIEW_GUIDE,
+        _REQUIREMENTS,
+        _ROADMAP,
+    )
 }
 
 

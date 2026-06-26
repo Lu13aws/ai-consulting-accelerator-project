@@ -36,18 +36,24 @@ def test_list_skills_returns_all_skills(client):
     resp = client.get("/api/v1/skills")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["skill_count"] == 4
+    assert body["skill_count"] == 9
     names = {s["name"] for s in body["skills"]}
-    assert names == {
+    assert {
         "consulting.structure-business-problem",
         "consulting.structure-requirements",
         "consulting.analyze-stakeholders",
         "consulting.structure-roadmap",
-    }
-    # Input contract is exposed for the UI
+        "consulting.identify-risks",
+        "consulting.detect-assumptions",
+        "consulting.open-questions",
+        "consulting.generate-hypotheses",
+        "consulting.interview-guide",
+    } == names
+    # Input contract + layer are exposed for the UI
     for s in body["skills"]:
         assert s["required_fields"]
         assert s["version"]
+        assert s["layer"] in {"discovery", "analysis", "delivery"}
 
 
 def test_structure_unknown_skill_returns_422(client):

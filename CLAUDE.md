@@ -15,12 +15,22 @@ Every output is a draft for human review, grounded in cited frameworks.
 
 ## What This Product Is
 
-An AI-powered consulting assistant that:
+An AI-assisted consulting **workflow** (Discovery → Analysis → Delivery) that:
 
 1. Answers questions grounded in industry frameworks (IREB, BABOK, BPMN, PMBOK, etc.)
-2. Takes user-provided context and structures it into professional BA/RE artifacts
-3. Helps practitioners apply frameworks without needing to memorise every standard
-4. Demonstrates to potential clients how AI accelerates consulting workflows
+2. **Discovery:** structures the business situation and actively surfaces gaps —
+   problem definition, stakeholders, risks, assumptions, open questions, hypotheses,
+   interview guides
+3. **Analysis:** turns understanding into structured solution design — requirement
+   classification, INVEST user stories, quality checks
+4. **Delivery:** supports planning — roadmap + agile backlog (estimation/architecture/
+   proposals are a deferred, heavily-caveated future phase)
+5. Helps practitioners apply frameworks without memorising every standard; demonstrates
+   to potential clients how AI accelerates consulting workflows
+
+**Layers are a product taxonomy over named skills, not separate systems.** Each skill is
+a single-shot, grounded, cited, language-faithful Markdown draft. Multi-turn stateful
+"interview mode" is a planned Phase 2 capability (not yet built).
 
 ## What This Product Is NOT
 
@@ -263,12 +273,20 @@ The LLM synthesises an answer from retrieved chunks. Results are suggestions, no
 Each structuring capability is a **named, versioned skill** with an explicit input/output contract.
 Skills are **invoked by name**, never retrieved by similarity.
 
-| Skill name | Version | Purpose |
-|---|---|---|
-| `consulting.structure-business-problem` | v1.2 | IREB/BABOK-aligned problem statement |
-| `consulting.structure-requirements` | v1.2 | INVEST user stories + Acceptance Criteria |
-| `consulting.analyze-stakeholders` | v1.1 | RACI skeleton + stakeholder categories |
-| `consulting.structure-roadmap` | v1.0 | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
+Skills are grouped into product **layers** (`layer`: discovery | analysis | delivery) —
+a taxonomy for the UI/workflow, not separate systems.
+
+| Skill name | Version | Layer | Purpose |
+|---|---|---|---|
+| `consulting.structure-business-problem` | v1.3 | discovery | Current/target state, pain points, goals, success metrics, root cause, stakeholders, impact, scope |
+| `consulting.analyze-stakeholders` | v1.2 | discovery | Role categories, RACI skeleton, influence/interest, engagement levels, communication plan |
+| `consulting.identify-risks` | v1.0 | discovery | Risk · Impact · Probability · Recommendation |
+| `consulting.detect-assumptions` | v1.0 | discovery | Implicit assumptions to validate |
+| `consulting.open-questions` | v1.0 | discovery | Clarification questions before solutioning |
+| `consulting.generate-hypotheses` | v1.0 | discovery | Explicitly-labelled root-cause hypotheses |
+| `consulting.interview-guide` | v1.0 | discovery | Stakeholder discovery interview guide |
+| `consulting.structure-requirements` | v1.3 | analysis | Requirement classification (BR/FR/NFR/…) + INVEST user stories + quality flags |
+| `consulting.structure-roadmap` | v1.0 | delivery | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
 
 **Input contract:** structured user context (defined required fields per skill)
 **Output contract:** defined Markdown format, with framework citations
@@ -318,11 +336,17 @@ Inherited from ai-platform-project-v1:
 - Separation of ingestion phase from query phase
 
 Consulting-specific additions:
-- Every AI output must cite the specific framework section it references
+- Every AI output must cite the framework section it references; where a framework does
+  not back the content (e.g. estimation), label it **indicative/heuristic** — never fabricate citations
+- **Output language is locked to the input language** (DE/EN), detected server-side and
+  passed as an explicit instruction — grounding context in another language must never
+  flip the output language
 - Structured input → structured output (no open-ended generation without user context)
 - All artifact templates are versioned and reviewable
 - Never produce outputs that could be mistaken for professional consulting advice
 - Human review is required before any structured artifact is used in a real project
+- **Confidentiality:** persisted client engagement data (Phase 2 interview mode) must use
+  an isolated DB — never the shared public `ai-platform-db-v2`
 
 ---
 

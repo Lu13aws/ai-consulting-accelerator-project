@@ -178,6 +178,7 @@ class ConsultingService:
                 name=s.name,
                 version=s.version,
                 description=s.description,
+                layer=s.layer,
                 required_fields=s.required_fields,
                 optional_fields=s.optional_fields,
             )
@@ -200,13 +201,18 @@ class ConsultingService:
 
         provider = get_llm_provider()
 
-        # 2. Retrieve grounding chunks (skill seed + the user's input text).
-        #    Filter to the input language (or language-agnostic chunks) so a
-        #    cross-lingual match can't flip the generated artifact's language.
+        # Detect the input language ONCE — used both to lock the output language
+        # (deterministic, so the model can't drift to a third language) and to filter
+        # grounding chunks to the same language.
+        input_text = "\n".join(request.inputs.values())
+        lang = _detect_language(input_text)
+        lang_name = "German" if lang == "de" else "English"
+
+        # 2. Retrieve grounding chunks (skill seed + the user's input text), filtered to
+        #    the input language so a cross-lingual match can't flip the output language.
         results: list[SearchResult] = []
         if request.top_k > 0:
             embedder = Embedder(provider)
-            input_text = "\n".join(request.inputs.values())
             seed_query = f"{skill.retrieval_seed}\n{input_text}"
             query_embedding = await embedder.embed_query(seed_query)
             store = VectorStore(self._session)
@@ -218,7 +224,6 @@ class ConsultingService:
             )
             # Filter by the detected language of each chunk's CONTENT (the stored
             # language metadata is often "unknown", so it can't be trusted here).
-            lang = _detect_language(input_text)
             results = [
                 r for r in candidates if _detect_language(r.content) == lang
             ][: request.top_k]
@@ -233,7 +238,8 @@ class ConsultingService:
         )
 
         user_content = (
-            (f"Framework context:\n{context}\n\n" if context else "")
+            f"Write the entire response in {lang_name}.\n\n"
+            + (f"Framework context:\n{context}\n\n" if context else "")
             + f"User input:\n{input_block}\n\n"
             + f"Produce the structured artifact now. End with this exact disclaimer line:\n{DRAFT_DISCLAIMER}"
         )

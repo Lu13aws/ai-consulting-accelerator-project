@@ -47,6 +47,7 @@ class SkillInfo(BaseModel):
     name: str
     version: str
     description: str
+    layer: str
     required_fields: list[str]
     optional_fields: list[str]
 
@@ -97,3 +98,9 @@ class RoadmapRequest(BaseModel):
 class StakeholdersRequest(BaseModel):
     # Single free-text field per the UI; mapped to the skill's two required inputs.
     input: str = Field(..., min_length=1)
+
+
+class RunRequest(BaseModel):
+    # Generic skill invocation used by the Discovery UI (single-input skills).
+    skill: str = Field(..., description="Skill name, e.g. consulting.identify-risks")
+    inputs: dict[str, str] = Field(..., description="Skill-specific input fields")

@@ -13,7 +13,14 @@ EXPECTED_SKILLS = {
     "consulting.structure-requirements",
     "consulting.analyze-stakeholders",
     "consulting.structure-roadmap",
+    "consulting.identify-risks",
+    "consulting.detect-assumptions",
+    "consulting.open-questions",
+    "consulting.generate-hypotheses",
+    "consulting.interview-guide",
 }
+
+VALID_LAYERS = {"discovery", "analysis", "delivery"}
 
 
 def test_all_expected_skills_registered():
@@ -41,6 +48,7 @@ def test_skill_contract_is_well_formed(skill: StructuringSkill):
     assert skill.required_fields, "every skill must declare at least one required field"
     assert skill.system_prompt.strip()
     assert skill.retrieval_seed.strip()
+    assert skill.layer in VALID_LAYERS
 
 
 @pytest.mark.parametrize("skill", SKILLS.values(), ids=lambda s: s.name)
