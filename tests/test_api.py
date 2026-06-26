@@ -80,3 +80,34 @@ def test_structure_empty_required_field_returns_422(client):
         },
     )
     assert resp.status_code == 422
+
+
+# ── /api/v1/consulting/* alias routes — request validation (no LLM/DB) ──────────
+
+def test_consulting_query_requires_question(client):
+    # Missing body field -> Pydantic 422 before the route logic runs.
+    assert client.post("/api/v1/consulting/query", json={}).status_code == 422
+    assert client.post("/api/v1/consulting/query", json={"question": ""}).status_code == 422
+
+
+def test_consulting_structure_problem_requires_description(client):
+    assert client.post("/api/v1/consulting/structure/problem", json={}).status_code == 422
+
+
+def test_consulting_structure_requirements_requires_text(client):
+    assert client.post("/api/v1/consulting/structure/requirements", json={}).status_code == 422
+
+
+def test_consulting_roadmap_requires_vision_and_goals(client):
+    # vision alone is not enough — goals is also required.
+    resp = client.post("/api/v1/consulting/structure/roadmap", json={"vision": "An app"})
+    assert resp.status_code == 422
+
+
+def test_consulting_stakeholders_requires_input(client):
+    assert client.post("/api/v1/consulting/stakeholders", json={}).status_code == 422
+
+
+def test_consulting_routes_exist(client):
+    # A GET on a POST-only route returns 405 (route exists), not 404.
+    assert client.get("/api/v1/consulting/query").status_code == 405

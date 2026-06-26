@@ -81,6 +81,10 @@ Each document is indexed with `app_name="consulting"` for scoped retrieval.
 | File | Content |
 |---|---|
 | `havard_business_review_projectmanagement_guide.PDF` | HBR Project Management Guide |
+| `roadmapping_fraunhofer_de.pdf` | Fraunhofer "Praxisstudie Roadmapping" (DE) — roadmap method/practice |
+| `backlog_framework_de.pdf` | Agile backlog/Scrum reference (DE) |
+| `backlog_framework_en_2.pdf` | Agile backlog & prioritization reference (EN) |
+| `frameworks/scrum_framework.pdf` | Scrum framework (agile/backlog source) |
 
 ### Governance & Compliance Frameworks
 
@@ -261,9 +265,10 @@ Skills are **invoked by name**, never retrieved by similarity.
 
 | Skill name | Version | Purpose |
 |---|---|---|
-| `consulting.structure-business-problem` | v1.0 | IREB/BABOK-aligned problem statement |
-| `consulting.structure-requirements` | v1.0 | INVEST user stories + Acceptance Criteria |
-| `consulting.analyze-stakeholders` | v1.0 | RACI skeleton + stakeholder categories |
+| `consulting.structure-business-problem` | v1.2 | IREB/BABOK-aligned problem statement |
+| `consulting.structure-requirements` | v1.2 | INVEST user stories + Acceptance Criteria |
+| `consulting.analyze-stakeholders` | v1.1 | RACI skeleton + stakeholder categories |
+| `consulting.structure-roadmap` | v1.0 | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
 
 **Input contract:** structured user context (defined required fields per skill)
 **Output contract:** defined Markdown format, with framework citations
@@ -341,8 +346,10 @@ Same as ai-platform-project-v1:
 - Business Problem Structurer (IREB/BABOK format)
 - Requirements Structurer (INVEST + Acceptance Criteria)
 - Stakeholder Analysis Assistant
-- Next.js demo UI at consulting.bridging-data.com
-- Cognito login for demo access
+- Roadmap Generator (Now/Next/Later + agile backlog) — grounded in roadmapping + Scrum
+- Next.js demo UI (sidebar app, dark platform theme) at consulting.bridging-data.com
+- **Public demo — no auth in Phase 1** (Cognito deferred; UI calls the public
+  `/api/v1/consulting/*` routes)
 
 ### Phase 2 — Practitioner Toolset (optional, 2027)
 
