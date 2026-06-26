@@ -29,8 +29,14 @@ An AI-assisted consulting **workflow** (Discovery → Analysis → Delivery) tha
    to potential clients how AI accelerates consulting workflows
 
 **Layers are a product taxonomy over named skills, not separate systems.** Each skill is
-a single-shot, grounded, cited, language-faithful Markdown draft. Multi-turn stateful
-"interview mode" is a planned Phase 2 capability (not yet built).
+a single-shot, grounded, cited, language-faithful Markdown draft.
+
+**Engagements (Phase 2 — Interview/Discovery Mode, first iteration shipped):** a stateful,
+2-round flow over the existing skills — initial input → Initial Analysis + Hypotheses +
+Open Questions → user answers → Refined Analysis + classified Requirements. Persisted via a
+**dedicated engine** (`CONSULTING_ENGAGEMENT_DB_URL`) that must point at an **isolated DB**
+in production (never the shared public db-v2). Routes: `/api/v1/consulting/engagements*`;
+UI: `/engagements`.
 
 ## What This Product Is NOT
 

@@ -10,6 +10,7 @@ dependency is overridden so no real database is required.
 import pytest
 from aiplatform.storage.database import get_session
 from apps.consulting_api.main import app
+from apps.consulting_api.storage.engagement_db import get_engagement_session
 from fastapi.testclient import TestClient
 
 
@@ -21,6 +22,7 @@ def _no_db_session():
 @pytest.fixture
 def client():
     app.dependency_overrides[get_session] = _no_db_session
+    app.dependency_overrides[get_engagement_session] = _no_db_session
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -117,3 +119,21 @@ def test_consulting_stakeholders_requires_input(client):
 def test_consulting_routes_exist(client):
     # A GET on a POST-only route returns 405 (route exists), not 404.
     assert client.get("/api/v1/consulting/query").status_code == 405
+
+
+# ── Engagement routes (Phase 2) — request validation (no LLM/DB) ──────────────
+
+def test_engagement_create_requires_input(client):
+    assert client.post("/api/v1/consulting/engagements", json={}).status_code == 422
+    assert client.post("/api/v1/consulting/engagements", json={"input": ""}).status_code == 422
+
+
+def test_engagement_answer_requires_answers(client):
+    eid = "00000000-0000-0000-0000-000000000000"
+    assert client.post(f"/api/v1/consulting/engagements/{eid}/answer", json={}).status_code == 422
+
+
+def test_engagement_answer_rejects_bad_uuid(client):
+    # A non-UUID path segment fails path validation (422), proving the route is wired.
+    resp = client.post("/api/v1/consulting/engagements/not-a-uuid/answer", json={"answers": "x"})
+    assert resp.status_code == 422

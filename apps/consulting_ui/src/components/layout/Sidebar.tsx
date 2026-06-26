@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, FileText, LayoutDashboard, MessageSquare, Users } from "lucide-react";
+import { Briefcase, Compass, FileText, LayoutDashboard, MessageSquare, Users } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const NAV = [
   { href: "/discovery", label: "Discovery", icon: Compass },
   { href: "/structure", label: "Structurer", icon: FileText },
   { href: "/stakeholders", label: "Stakeholders", icon: Users },
+  { href: "/engagements", label: "Engagements", icon: Briefcase },
 ];
 
 // trailingSlash: true makes /chat -> /chat/ — normalize before comparing.

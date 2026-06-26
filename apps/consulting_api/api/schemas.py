@@ -1,5 +1,7 @@
 """Request/response models for the consulting API."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -104,3 +106,41 @@ class RunRequest(BaseModel):
     # Generic skill invocation used by the Discovery UI (single-input skills).
     skill: str = Field(..., description="Skill name, e.g. consulting.identify-risks")
     inputs: dict[str, str] = Field(..., description="Skill-specific input fields")
+
+
+# ── Engagements (Phase 2 — Interview/Discovery Mode) ──────────────────────────
+
+class EngagementCreateRequest(BaseModel):
+    input: str = Field(..., min_length=1, description="The customer's situation / problem in free text")
+
+
+class AnswerRequest(BaseModel):
+    answers: str = Field(..., min_length=1, description="Free-text answers to the open questions")
+
+
+class EngagementSummary(BaseModel):
+    id: str
+    title: str
+    status: str
+    created_at: datetime
+
+
+class EngagementDetail(BaseModel):
+    id: str
+    title: str
+    status: str
+    language: str
+    initial_input: str
+    initial_analysis: str | None = None
+    hypotheses: str | None = None
+    open_questions: str | None = None
+    answers: str | None = None
+    refined_analysis: str | None = None
+    requirements: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class EngagementListResponse(BaseModel):
+    count: int
+    engagements: list[EngagementSummary]

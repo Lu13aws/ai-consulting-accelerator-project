@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine as _create_sync_engine
 
 from apps.consulting_api.api.consulting_routes import router as consulting_router
+from apps.consulting_api.api.engagement_routes import router as engagement_router
 from apps.consulting_api.api.routes import router
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,17 @@ def _bootstrap_schema() -> None:
         engine.dispose()
     except Exception as exc:  # noqa: BLE001 — never fail import on DB bootstrap
         logger.warning("Schema bootstrap skipped (DB unreachable): %s", exc)
+
+    # Engagement tables live in their own (confidential) DB — create them on its engine.
+    try:
+        from apps.consulting_api.storage.engagement_db import ENGAGEMENT_DB_URL
+        from apps.consulting_api.storage.engagement_models import Base as EngagementBase
+
+        eng_engine = _create_sync_engine(ENGAGEMENT_DB_URL.replace("+asyncpg", ""))
+        EngagementBase.metadata.create_all(eng_engine)
+        eng_engine.dispose()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Engagement schema bootstrap skipped: %s", exc)
 
 
 _bootstrap_schema()
@@ -63,6 +75,7 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api/v1")
 app.include_router(consulting_router, prefix="/api/v1/consulting")
+app.include_router(engagement_router, prefix="/api/v1/consulting/engagements")
 
 
 @app.get("/health")

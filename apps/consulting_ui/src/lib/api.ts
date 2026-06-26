@@ -40,6 +40,29 @@ export interface SkillInfo {
   optional_fields: string[];
 }
 
+export interface EngagementSummary {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+}
+
+export interface EngagementDetail {
+  id: string;
+  title: string;
+  status: string;
+  language: string;
+  initial_input: string;
+  initial_analysis: string | null;
+  hypotheses: string | null;
+  open_questions: string | null;
+  answers: string | null;
+  refined_analysis: string | null;
+  requirements: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -82,4 +105,12 @@ export const api = {
   getSkills: () => getJSON<{ skill_count: number; skills: SkillInfo[] }>("/skills"),
   runSkill: (skill: string, inputs: Record<string, string>) =>
     post<StructureResponse>("/run", { skill, inputs }),
+
+  // Engagements (Phase 2 — Interview/Discovery Mode)
+  createEngagement: (input: string) => post<EngagementDetail>("/engagements", { input }),
+  listEngagements: () =>
+    getJSON<{ count: number; engagements: EngagementSummary[] }>("/engagements"),
+  getEngagement: (id: string) => getJSON<EngagementDetail>(`/engagements/${id}`),
+  answerEngagement: (id: string, answers: string) =>
+    post<EngagementDetail>(`/engagements/${id}/answer`, { answers }),
 };

@@ -1,0 +1,102 @@
+"""
+Engagement routes (Phase 2) under /api/v1/consulting/engagements.
+
+A stateful, 2-round discovery flow. Persistence uses the dedicated engagement session
+(confidential DB); skill calls reuse the RAG/vector session.
+"""
+
+from uuid import UUID
+
+from aiplatform.retrieval.embedder import CostLimitExceeded
+from aiplatform.storage.database import get_session
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from apps.consulting_api.api.schemas import (
+    AnswerRequest,
+    EngagementCreateRequest,
+    EngagementDetail,
+    EngagementListResponse,
+    EngagementSummary,
+)
+from apps.consulting_api.services.engagement_service import EngagementService
+from apps.consulting_api.storage.engagement_db import get_engagement_session
+from apps.consulting_api.storage.engagement_models import Engagement
+
+router = APIRouter()
+
+
+def _detail(e: Engagement) -> EngagementDetail:
+    return EngagementDetail(
+        id=str(e.id),
+        title=e.title,
+        status=e.status,
+        language=e.language,
+        initial_input=e.initial_input,
+        initial_analysis=e.initial_analysis,
+        hypotheses=e.hypotheses,
+        open_questions=e.open_questions,
+        answers=e.answers,
+        refined_analysis=e.refined_analysis,
+        requirements=e.requirements,
+        created_at=e.created_at,
+        updated_at=e.updated_at,
+    )
+
+
+@router.post("", response_model=EngagementDetail)
+async def create_engagement(
+    request: EngagementCreateRequest,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+    rag_session: AsyncSession = Depends(get_session),
+) -> EngagementDetail:
+    """Round 1: kick off discovery (analysis + hypotheses + open questions)."""
+    service = EngagementService(eng_session, rag_session)
+    try:
+        return _detail(await service.create(request.input))
+    except CostLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+
+
+@router.get("", response_model=EngagementListResponse)
+async def list_engagements(
+    eng_session: AsyncSession = Depends(get_engagement_session),
+) -> EngagementListResponse:
+    service = EngagementService(eng_session, eng_session)  # list does not call skills
+    items = await service.list_recent()
+    return EngagementListResponse(
+        count=len(items),
+        engagements=[
+            EngagementSummary(id=str(e.id), title=e.title, status=e.status, created_at=e.created_at)
+            for e in items
+        ],
+    )
+
+
+@router.get("/{engagement_id}", response_model=EngagementDetail)
+async def get_engagement(
+    engagement_id: UUID,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+) -> EngagementDetail:
+    service = EngagementService(eng_session, eng_session)
+    engagement = await service.get(engagement_id)
+    if engagement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found.")
+    return _detail(engagement)
+
+
+@router.post("/{engagement_id}/answer", response_model=EngagementDetail)
+async def answer_engagement(
+    engagement_id: UUID,
+    request: AnswerRequest,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+    rag_session: AsyncSession = Depends(get_session),
+) -> EngagementDetail:
+    """Round 2: incorporate the answers into a refined analysis + requirements."""
+    service = EngagementService(eng_session, rag_session)
+    try:
+        return _detail(await service.answer(engagement_id, request.answers))
+    except CostLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
