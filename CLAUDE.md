@@ -365,6 +365,12 @@ Consulting-specific additions:
 - Human review is required before any structured artifact is used in a real project
 - **Confidentiality:** persisted client engagement data (Phase 2 interview mode) must use
   an isolated DB — never the shared public `ai-platform-db-v2`
+- **Quality eval harness:** `scripts/eval.py` runs golden cases (DE/EN) through the real
+  skills and applies rule-based checks (`apps/consulting_api/services/eval_checks.py`):
+  non-empty, language lock, draft disclaimer, required sections, citation integrity. It
+  calls the real LLM (~cents/run) — run on demand after a prompt/version change, not in CI;
+  `--dry-run` lists cases without calling. The check functions are pure + unit-tested
+  (`tests/test_eval_checks.py`); LLM-as-judge is intentionally deferred (cost + reliability)
 
 ---
 
