@@ -8,7 +8,7 @@ and lives in its own database (see engagement_db.py), never the shared public sc
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -25,8 +25,10 @@ class Engagement(Base):
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="awaiting_answers")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="in_discovery")
     language: Mapped[str] = mapped_column(String(8), nullable=False, default="en")
+    # Lifecycle flag — separate from the discovery `status`; archived ones are hidden by default.
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     initial_input: Mapped[str] = mapped_column(Text, nullable=False)
     # Round 1 artifacts

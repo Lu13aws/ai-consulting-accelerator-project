@@ -149,3 +149,18 @@ def test_engagement_generate_requires_tool(client):
 def test_engagement_conclude_route_wired(client):
     # POST-only conclude route exists (bad UUID → 422 path validation, not 404).
     assert client.post("/api/v1/consulting/engagements/not-a-uuid/conclude").status_code == 422
+
+
+def test_engagement_report_rejects_unknown_format(client):
+    eid = "00000000-0000-0000-0000-000000000000"
+    resp = client.get(f"/api/v1/consulting/engagements/{eid}/report?format=xlsx")
+    assert resp.status_code == 422
+    assert "Unknown format" in resp.json()["detail"]
+
+
+def test_engagement_update_rejects_bad_uuid(client):
+    assert client.patch("/api/v1/consulting/engagements/not-a-uuid", json={"title": "x"}).status_code == 422
+
+
+def test_engagement_delete_rejects_bad_uuid(client):
+    assert client.delete("/api/v1/consulting/engagements/not-a-uuid").status_code == 422

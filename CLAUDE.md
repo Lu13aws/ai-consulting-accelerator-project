@@ -39,12 +39,14 @@ synthesizes classified Requirements + a Consultant's Assessment (`status="conclu
 are stored append-only in a JSONB `turns` column. Persisted via a **dedicated engine**
 (`CONSULTING_ENGAGEMENT_DB_URL`) that must point at an **isolated DB** in production (never the
 shared public db-v2). Routes: `/api/v1/consulting/engagements*` (create / answer / conclude /
-generate / report). **Context hand-off:** from a concluded engagement, generate downstream
-artifacts (Roadmap, Stakeholder Analysis) from its context; they attach under a JSONB `extras`
-column (`POST /engagements/{id}/generate`) — the engagement becomes the single case file
-(Discovery → Analysis → Delivery). **Report export:** `GET /engagements/{id}/report` composes
-every artifact (situation, analysis, all rounds, requirements, assessment, downstream) into one
-downloadable Markdown file. UI: `/engagements`.
+generate / report; plus `PATCH`/`DELETE` for **lifecycle** — rename, archive, delete; archived
+engagements are hidden from the list unless `?include_archived=true`). **Context hand-off:** from
+a concluded engagement, generate downstream artifacts (Roadmap, Stakeholder Analysis) from its
+context; they attach under a JSONB `extras` column (`POST /engagements/{id}/generate`) — the
+engagement becomes the single case file (Discovery → Analysis → Delivery). **Report export:**
+`GET /engagements/{id}/report?format=md|docx|pdf` composes every artifact (situation, analysis,
+all rounds, requirements, assessment, downstream) into one downloadable file — Markdown, Word
+(python-docx) or PDF (fpdf2), both pure-Python/Lambda-safe. UI: `/engagements`.
 
 ## What This Product Is NOT
 

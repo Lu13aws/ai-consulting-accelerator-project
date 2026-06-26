@@ -11,6 +11,8 @@ dependencies = [
     # langchain-text-splitters, fastapi, mangum, ...) come in via aiplatform.
     # Distribution name is "ai-platform"; the import package is "aiplatform".
     "ai-platform",
+    "fpdf2>=2.8.7",
+    "python-docx>=1.2.0",
 ]
 
 # Editable install of the sibling platform repo — changes there take effect

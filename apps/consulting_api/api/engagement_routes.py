@@ -19,9 +19,11 @@ from apps.consulting_api.api.schemas import (
     EngagementDetail,
     EngagementListResponse,
     EngagementSummary,
+    EngagementUpdateRequest,
     GenerateRequest,
 )
 from apps.consulting_api.services.engagement_service import EngagementService, build_report
+from apps.consulting_api.services.report_render import render_docx, render_pdf
 from apps.consulting_api.storage.engagement_db import get_engagement_session
 from apps.consulting_api.storage.engagement_models import Engagement
 
@@ -33,6 +35,7 @@ def _detail(e: Engagement) -> EngagementDetail:
         id=str(e.id),
         title=e.title,
         status=e.status,
+        archived=e.archived,
         language=e.language,
         initial_input=e.initial_input,
         initial_analysis=e.initial_analysis,
@@ -65,17 +68,53 @@ async def create_engagement(
 
 @router.get("", response_model=EngagementListResponse)
 async def list_engagements(
+    include_archived: bool = False,
     eng_session: AsyncSession = Depends(get_engagement_session),
 ) -> EngagementListResponse:
     service = EngagementService(eng_session, eng_session)  # list does not call skills
-    items = await service.list_recent()
+    items = await service.list_recent(include_archived=include_archived)
     return EngagementListResponse(
         count=len(items),
         engagements=[
-            EngagementSummary(id=str(e.id), title=e.title, status=e.status, created_at=e.created_at)
+            EngagementSummary(
+                id=str(e.id),
+                title=e.title,
+                status=e.status,
+                archived=e.archived,
+                created_at=e.created_at,
+            )
             for e in items
         ],
     )
+
+
+@router.patch("/{engagement_id}", response_model=EngagementDetail)
+async def update_engagement(
+    engagement_id: UUID,
+    request: EngagementUpdateRequest,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+) -> EngagementDetail:
+    """Rename and/or (un)archive an engagement."""
+    service = EngagementService(eng_session, eng_session)
+    try:
+        return _detail(
+            await service.update(engagement_id, title=request.title, archived=request.archived)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.delete("/{engagement_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_engagement(
+    engagement_id: UUID,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+) -> Response:
+    service = EngagementService(eng_session, eng_session)
+    try:
+        await service.delete(engagement_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{engagement_id}", response_model=EngagementDetail)
@@ -142,18 +181,40 @@ async def generate_downstream(
         raise HTTPException(status_code=code, detail=str(exc)) from exc
 
 
+_REPORT_FORMATS = {
+    "md": "text/markdown; charset=utf-8",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
+
+
 @router.get("/{engagement_id}/report")
 async def engagement_report(
     engagement_id: UUID,
+    format: str = "md",
     eng_session: AsyncSession = Depends(get_engagement_session),
 ) -> Response:
-    """Download the whole engagement as one Markdown report."""
+    """Download the whole engagement as one report (Markdown, Word, or PDF)."""
+    if format not in _REPORT_FORMATS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown format '{format}'. Available: {', '.join(_REPORT_FORMATS)}.",
+        )
     engagement = await EngagementService(eng_session, eng_session).get(engagement_id)
     if engagement is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found.")
+
+    markdown = build_report(engagement)
+    if format == "docx":
+        content: bytes | str = render_docx(markdown)
+    elif format == "pdf":
+        content = render_pdf(markdown)
+    else:
+        content = markdown
+
     slug = re.sub(r"[^a-z0-9]+", "-", engagement.title.lower()).strip("-")[:50] or "engagement"
     return Response(
-        content=build_report(engagement),
-        media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{slug}.md"'},
+        content=content,
+        media_type=_REPORT_FORMATS[format],
+        headers={"Content-Disposition": f'attachment; filename="{slug}.{format}"'},
     )

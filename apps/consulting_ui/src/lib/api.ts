@@ -44,6 +44,7 @@ export interface EngagementSummary {
   id: string;
   title: string;
   status: string;
+  archived: boolean;
   created_at: string;
 }
 
@@ -51,6 +52,7 @@ export interface EngagementDetail {
   id: string;
   title: string;
   status: string;
+  archived: boolean;
   language: string;
   initial_input: string;
   initial_analysis: string | null;
@@ -91,6 +93,21 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
+async function del(path: string): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+}
+
 export const api = {
   query: (question: string) => post<QueryResponse>("/query", { question }),
   structureProblem: (problem_description: string, additional_context?: string) =>
@@ -111,14 +128,20 @@ export const api = {
 
   // Engagements (Phase 2 — Interview/Discovery Mode)
   createEngagement: (input: string) => post<EngagementDetail>("/engagements", { input }),
-  listEngagements: () =>
-    getJSON<{ count: number; engagements: EngagementSummary[] }>("/engagements"),
+  listEngagements: (includeArchived = false) =>
+    getJSON<{ count: number; engagements: EngagementSummary[] }>(
+      `/engagements${includeArchived ? "?include_archived=true" : ""}`,
+    ),
   getEngagement: (id: string) => getJSON<EngagementDetail>(`/engagements/${id}`),
+  updateEngagement: (id: string, body: { title?: string; archived?: boolean }) =>
+    patch<EngagementDetail>(`/engagements/${id}`, body),
+  deleteEngagement: (id: string) => del(`/engagements/${id}`),
   answerEngagement: (id: string, answers: string) =>
     post<EngagementDetail>(`/engagements/${id}/answer`, { answers }),
   concludeEngagement: (id: string) =>
     post<EngagementDetail>(`/engagements/${id}/conclude`, {}),
   generateFromEngagement: (id: string, tool: string) =>
     post<EngagementDetail>(`/engagements/${id}/generate`, { tool }),
-  reportUrl: (id: string) => `${BASE}/engagements/${id}/report`,
+  reportUrl: (id: string, format: "md" | "docx" | "pdf" = "md") =>
+    `${BASE}/engagements/${id}/report?format=${format}`,
 };

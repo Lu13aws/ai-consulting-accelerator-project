@@ -122,7 +122,13 @@ class EngagementSummary(BaseModel):
     id: str
     title: str
     status: str
+    archived: bool = False
     created_at: datetime
+
+
+class EngagementUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    archived: bool | None = None
 
 
 class EngagementTurn(BaseModel):
@@ -135,6 +141,7 @@ class EngagementDetail(BaseModel):
     id: str
     title: str
     status: str
+    archived: bool = False
     language: str
     initial_input: str
     initial_analysis: str | None = None

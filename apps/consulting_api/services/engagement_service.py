@@ -208,6 +208,30 @@ class EngagementService:
     async def get(self, engagement_id: UUID) -> Engagement | None:
         return await self._eng.get(Engagement, engagement_id)
 
-    async def list_recent(self, limit: int = 50) -> list[Engagement]:
-        stmt = select(Engagement).order_by(Engagement.created_at.desc()).limit(limit)
+    async def update(
+        self, engagement_id: UUID, *, title: str | None = None, archived: bool | None = None
+    ) -> Engagement:
+        """Rename and/or (un)archive an engagement."""
+        engagement = await self._eng.get(Engagement, engagement_id)
+        if engagement is None:
+            raise ValueError(f"Engagement {engagement_id} not found.")
+        if title is not None:
+            engagement.title = title.strip()[:200]
+        if archived is not None:
+            engagement.archived = archived
+        await self._eng.flush()
+        return engagement
+
+    async def delete(self, engagement_id: UUID) -> None:
+        engagement = await self._eng.get(Engagement, engagement_id)
+        if engagement is None:
+            raise ValueError(f"Engagement {engagement_id} not found.")
+        await self._eng.delete(engagement)
+        await self._eng.flush()
+
+    async def list_recent(self, limit: int = 50, include_archived: bool = False) -> list[Engagement]:
+        stmt = select(Engagement)
+        if not include_archived:
+            stmt = stmt.where(Engagement.archived.is_(False))
+        stmt = stmt.order_by(Engagement.created_at.desc()).limit(limit)
         return list((await self._eng.execute(stmt)).scalars().all())

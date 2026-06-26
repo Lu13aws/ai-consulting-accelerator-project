@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 from apps.consulting_api.services.engagement_service import build_report
+from apps.consulting_api.services.report_render import render_docx, render_pdf
 
 
 def _engagement(**overrides):
@@ -51,3 +52,22 @@ def test_report_skips_empty_sections_and_legacy_fallback():
     assert "## Round 1" not in md
     assert "## Refined Analysis" in md
     assert "## Roadmap" not in md  # extras empty → skipped
+
+
+def test_render_docx_produces_a_word_file():
+    data = render_docx(build_report(_engagement()))
+    assert data[:2] == b"PK"  # .docx is a zip archive
+    assert len(data) > 1000
+
+
+def test_render_pdf_produces_a_pdf_file():
+    # Includes German umlauts + an em-dash to exercise Latin-1 sanitisation.
+    data = render_pdf("# Über — Onboarding\n\n## Ziele\n\n- **Schnell** ramping\n")
+    assert data[:4] == b"%PDF"
+    assert len(data) > 500
+
+
+def test_render_pdf_handles_unbreakable_long_token():
+    # A token wider than the page must not crash (wrapmode CHAR breaks it).
+    data = render_pdf("## Link\n\n" + "x" * 400 + "\n")
+    assert data[:4] == b"%PDF"

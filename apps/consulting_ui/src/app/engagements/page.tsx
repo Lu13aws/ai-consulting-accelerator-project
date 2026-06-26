@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, FileDown, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import Markdown from "@/components/Markdown";
 import { api, type EngagementDetail, type EngagementSummary } from "@/lib/api";
@@ -43,12 +43,13 @@ function ListView() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<EngagementSummary[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.listEngagements();
+        const res = await api.listEngagements(showArchived);
         if (!cancelled) setItems(res.engagements);
       } catch {
         // listing is best-effort
@@ -57,7 +58,7 @@ function ListView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [showArchived]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -105,7 +106,18 @@ function ListView() {
         {error && <p className="text-sm text-red-400">{error}</p>}
       </form>
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Recent</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent</h2>
+        <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="accent-blue-600"
+          />
+          Show archived
+        </label>
+      </div>
       {items.length === 0 ? (
         <p className="text-sm text-slate-600">No engagements yet.</p>
       ) : (
@@ -114,9 +126,16 @@ function ListView() {
             <li key={e.id}>
               <Link
                 href={`/engagements?id=${e.id}`}
-                className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-300 hover:border-blue-700 hover:bg-slate-800 transition-colors"
+                className={`flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm hover:border-blue-700 hover:bg-slate-800 transition-colors ${
+                  e.archived ? "text-slate-500" : "text-slate-300"
+                }`}
               >
                 <span className="flex-1 truncate">{e.title}</span>
+                {e.archived && (
+                  <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                    Archived
+                  </span>
+                )}
                 <StatusBadge status={e.status} />
               </Link>
             </li>
@@ -128,6 +147,7 @@ function ListView() {
 }
 
 function DetailView({ id }: { id: string }) {
+  const router = useRouter();
   const [eng, setEng] = useState<EngagementDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +155,9 @@ function DetailView({ id }: { id: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [concluding, setConcluding] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,6 +217,51 @@ function DetailView({ id }: { id: string }) {
     }
   }
 
+  async function saveTitle() {
+    const t = titleDraft.trim();
+    if (!t || lifecycleBusy) {
+      setEditingTitle(false);
+      return;
+    }
+    setLifecycleBusy(true);
+    setError(null);
+    try {
+      setEng(await api.updateEngagement(id, { title: t }));
+      setEditingTitle(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setLifecycleBusy(false);
+    }
+  }
+
+  async function toggleArchive() {
+    if (!eng || lifecycleBusy) return;
+    setLifecycleBusy(true);
+    setError(null);
+    try {
+      setEng(await api.updateEngagement(id, { archived: !eng.archived }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setLifecycleBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (lifecycleBusy) return;
+    if (!window.confirm("Delete this engagement permanently? This cannot be undone.")) return;
+    setLifecycleBusy(true);
+    setError(null);
+    try {
+      await api.deleteEngagement(id);
+      router.push("/engagements");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+      setLifecycleBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-8 py-10 text-sm text-slate-500">
@@ -218,15 +286,73 @@ function DetailView({ id }: { id: string }) {
         <Link href="/engagements" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-blue-400">
           <ArrowLeft size={12} /> All engagements
         </Link>
-        <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-slate-100">{eng.title}</h1>
+        <div className="mt-2 flex items-center gap-2">
+          {editingTitle ? (
+            <input
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveTitle();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              onBlur={saveTitle}
+              autoFocus
+              className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xl font-semibold text-slate-100 focus:outline-none focus:border-blue-600"
+            />
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold text-slate-100">{eng.title}</h1>
+              <button
+                onClick={() => {
+                  setTitleDraft(eng.title);
+                  setEditingTitle(true);
+                }}
+                title="Rename"
+                className="text-slate-500 transition-colors hover:text-blue-400"
+              >
+                <Pencil size={14} />
+              </button>
+            </>
+          )}
           <StatusBadge status={eng.status} />
-          <a
-            href={api.reportUrl(eng.id)}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-blue-600 hover:text-blue-400"
+          {eng.archived && (
+            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+              Archived
+            </span>
+          )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Export:</span>
+          {([
+            ["md", "Markdown"],
+            ["docx", "Word"],
+            ["pdf", "PDF"],
+          ] as const).map(([fmt, label]) => (
+            <a
+              key={fmt}
+              href={api.reportUrl(eng.id, fmt)}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-blue-600 hover:text-blue-400"
+            >
+              <FileDown size={12} /> {label}
+            </a>
+          ))}
+          <span className="mx-1 h-4 w-px bg-slate-700" />
+          <button
+            onClick={toggleArchive}
+            disabled={lifecycleBusy}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-blue-600 hover:text-blue-400 disabled:opacity-40"
           >
-            <Download size={12} /> Export report
-          </a>
+            {eng.archived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
+            {eng.archived ? "Unarchive" : "Archive"}
+          </button>
+          <button
+            onClick={remove}
+            disabled={lifecycleBusy}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-red-700 hover:text-red-400 disabled:opacity-40"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
         </div>
       </div>
 
