@@ -9,6 +9,7 @@ language, every artifact is marked as a draft, structured skills emit their defi
 sections, and citations are never fabricated.
 """
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -108,6 +109,39 @@ def check_confidence(artifact: str, required: bool) -> CheckResult:
     has_level = re.search(r"\b(high|medium|low)\b", artifact, re.IGNORECASE) is not None
     ok = has_label and has_level
     return CheckResult("confidence", ok, "present" if ok else f"label={has_label} level={has_level}")
+
+
+# ── Optional LLM-as-judge (content quality) ──────────────────────────────────
+# Subjective, non-deterministic — a signal, not a gate. The judge CALL lives in
+# scripts/eval.py (needs the LLM); parsing its reply is pure + testable here.
+
+JUDGE_DIMENSIONS = ("groundedness", "relevance", "citation_faithfulness")
+
+
+def parse_judge_scores(text: str) -> dict:
+    """Parse the judge's JSON reply (tolerating ```code fences```). Returns the 1–5
+    scores (clamped) plus an optional rationale; {} if nothing parseable."""
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1:
+        return {}
+    try:
+        data = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return {}
+    out: dict = {}
+    for dim in JUDGE_DIMENSIONS:
+        v = data.get(dim)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            out[dim] = max(1, min(5, int(round(v))))
+    if isinstance(data.get("rationale"), str):
+        out["rationale"] = data["rationale"].strip()
+    return out
+
+
+def judge_min_score(scores: dict) -> int | None:
+    """Lowest numeric dimension score, or None if no scores parsed."""
+    nums = [scores[d] for d in JUDGE_DIMENSIONS if d in scores]
+    return min(nums) if nums else None
 
 
 def run_checks(

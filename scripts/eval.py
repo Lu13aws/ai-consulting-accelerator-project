@@ -17,10 +17,16 @@ import argparse
 import asyncio
 import sys
 
+from aiplatform.llm import Message, get_llm_provider
 from aiplatform.storage.database import get_async_session
 from apps.consulting_api.api.schemas import StructureRequest
 from apps.consulting_api.services.consulting_service import ConsultingService
-from apps.consulting_api.services.eval_checks import run_checks
+from apps.consulting_api.services.eval_checks import (
+    JUDGE_DIMENSIONS,
+    judge_min_score,
+    parse_judge_scores,
+    run_checks,
+)
 
 # Golden cases. `sections` (exact headings) only on EN cases — for DE the model
 # translates the headings, so exact matching would be brittle.
@@ -220,10 +226,65 @@ SKILL_CAVEATS: dict[str, list[str]] = {
     ],
 }
 
-_GREEN, _RED, _DIM, _RESET = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
+_GREEN, _RED, _YELLOW, _DIM, _RESET = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
+
+_JUDGE_SYSTEM = """\
+You are a strict QA reviewer for AI-generated consulting DRAFTS (Business Analysis, \
+Requirements Engineering, Project Management). Judge the draft ONLY against the user \
+input and the provided framework context. Be critical: a fluent but generic or \
+unsupported answer must score low.
+
+Score each 1-5 (5 = best):
+- groundedness: factual / framework claims are supported by the context, or are clearly \
+the user's own input restructured. Penalise anything fabricated or attributed to a \
+framework that the context does not support.
+- relevance: addresses THIS specific user input, not generic boilerplate.
+- citation_faithfulness: every [n] marker points to a source that actually supports the \
+statement. If the draft has no [n] markers, score this 5.
+
+Respond with ONLY a JSON object, no prose:
+{"groundedness": int, "relevance": int, "citation_faithfulness": int, "rationale": "one short sentence"}"""
 
 
-async def _run_case(case: dict) -> tuple[list, int, int]:
+def _make_judge_provider(model: str | None):
+    """The judge provider — the configured one by default, or a specific (usually
+    stronger) model via --judge-model."""
+    if not model:
+        return get_llm_provider()
+    from aiplatform.llm.anthropic_provider import AnthropicProvider
+    from aiplatform.llm.base import LLMProviderName
+    from aiplatform.llm.openai_provider import OpenAIProvider
+    from aiplatform.settings import settings
+
+    if LLMProviderName(settings.llm_provider) == LLMProviderName.OPENAI:
+        return OpenAIProvider(
+            api_key=settings.openai_api_key.get_secret_value(),
+            chat_model=model,
+            embedding_model=settings.openai_embedding_model,
+            temperature=0,
+            max_tokens=settings.llm_max_tokens,
+        )
+    return AnthropicProvider(
+        api_key=settings.anthropic_api_key.get_secret_value(),
+        chat_model=model,
+        temperature=0,
+        max_tokens=settings.llm_max_tokens,
+    )
+
+
+async def _judge(provider, case: dict, artifact: str, sources: list) -> tuple[dict, int]:
+    context = "\n\n".join(f"[{i}] {s.excerpt}" for i, s in enumerate(sources, 1)) or "(none retrieved)"
+    user_input = "\n".join(f"{k}: {v}" for k, v in case["inputs"].items())
+    content = (
+        f"USER INPUT:\n{user_input}\n\nFRAMEWORK CONTEXT:\n{context}\n\nDRAFT TO JUDGE:\n{artifact}"
+    )
+    resp = await provider.complete(
+        [Message(role="user", content=content)], system_prompt=_JUDGE_SYSTEM, temperature=0
+    )
+    return parse_judge_scores(resp.content), resp.input_tokens + resp.output_tokens
+
+
+async def _run_case(case: dict, judge_provider=None) -> tuple[list, int, int, dict, int]:
     async with get_async_session() as session:
         service = ConsultingService(session)
         resp = await service.structure_artifact(
@@ -237,22 +298,27 @@ async def _run_case(case: dict) -> tuple[list, int, int]:
         caveats=SKILL_CAVEATS.get(case["skill"]),
         needs_confidence=case.get("confidence", False),
     )
-    return results, len(resp.sources), resp.input_tokens + resp.output_tokens
+    scores, judge_tokens = ({}, 0)
+    if judge_provider is not None:
+        scores, judge_tokens = await _judge(judge_provider, case, resp.artifact, resp.sources)
+    return results, len(resp.sources), resp.input_tokens + resp.output_tokens, scores, judge_tokens
 
 
-async def main(only: set[str] | None) -> int:
+async def main(only: set[str] | None, judge_provider=None) -> int:
     cases = [c for c in CASES if not only or c["id"] in only]
     print(f"Running {len(cases)} eval case(s)...\n")
-    total_checks = passed_checks = failed_cases = total_tokens = 0
+    total_checks = passed_checks = failed_cases = total_tokens = judge_tokens = warnings = 0
+    dim_sums: dict[str, list[int]] = {d: [] for d in JUDGE_DIMENSIONS}
 
     for case in cases:
         try:
-            results, n_sources, tokens = await _run_case(case)
+            results, n_sources, tokens, scores, jtok = await _run_case(case, judge_provider)
         except Exception as exc:  # noqa: BLE001 — report, don't abort the whole run
             failed_cases += 1
             print(f"{_RED}FAIL {case['id']}{_RESET}  ERROR: {exc}\n")
             continue
         total_tokens += tokens
+        judge_tokens += jtok
         case_failed = False
         print(f"{case['id']}  ({case['skill']}, {case['lang']}, {n_sources} sources, {tokens} tok)")
         for r in results:
@@ -264,11 +330,27 @@ async def main(only: set[str] | None) -> int:
                 case_failed = True
                 print(f"  {_RED}FAIL {r.name:<14} {r.detail}{_RESET}")
         failed_cases += int(case_failed)
+
+        if judge_provider is not None:
+            for d in JUDGE_DIMENSIONS:
+                if d in scores:
+                    dim_sums[d].append(scores[d])
+            low = judge_min_score(scores)
+            summary = " ".join(f"{d[:5]}={scores.get(d, '?')}" for d in JUDGE_DIMENSIONS)
+            rationale = scores.get("rationale", "no parseable judge reply")
+            colour = _YELLOW if (low is not None and low < 3) else _DIM
+            warnings += int(low is not None and low < 3)
+            print(f"  {colour}JUDGE {summary}{_RESET}  {_DIM}{rationale}{_RESET}")
         print()
 
     print("-" * 60)
     print(f"Checks: {passed_checks}/{total_checks} passed | "
-          f"Cases: {len(cases) - failed_cases}/{len(cases)} clean | ~{total_tokens} tokens")
+          f"Cases: {len(cases) - failed_cases}/{len(cases)} clean | ~{total_tokens} gen tokens")
+    if judge_provider is not None:
+        avgs = " ".join(
+            f"{d}={sum(v) / len(v):.1f}" if v else f"{d}=n/a" for d, v in dim_sums.items()
+        )
+        print(f"Judge: {avgs} | {warnings} warning(s) <3 (advisory) | ~{judge_tokens} judge tokens")
     return 1 if failed_cases else 0
 
 
@@ -276,6 +358,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the consulting skill quality eval harness.")
     parser.add_argument("--dry-run", action="store_true", help="List cases without calling the LLM.")
     parser.add_argument("--only", help="Comma-separated case ids to run (default: all).")
+    parser.add_argument(
+        "--judge", action="store_true",
+        help="Also score content quality with an LLM judge (groundedness/relevance/citations). Costs extra.",
+    )
+    parser.add_argument(
+        "--judge-model",
+        help="Judge model override, e.g. gpt-4o (default: the configured provider/model).",
+    )
     args = parser.parse_args()
     only_ids = {s.strip() for s in args.only.split(",")} if args.only else None
 
@@ -286,4 +376,5 @@ if __name__ == "__main__":
                 print(f"{c['id']:<18} {c['skill']:<40} lang={c['lang']} sections={secs}")
         sys.exit(0)
 
-    sys.exit(asyncio.run(main(only_ids)))
+    judge = _make_judge_provider(args.judge_model) if (args.judge or args.judge_model) else None
+    sys.exit(asyncio.run(main(only_ids, judge)))

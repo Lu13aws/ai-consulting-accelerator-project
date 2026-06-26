@@ -9,6 +9,8 @@ from apps.consulting_api.services.eval_checks import (
     check_nonempty,
     check_sections,
     check_structure,
+    judge_min_score,
+    parse_judge_scores,
     run_checks,
 )
 from apps.consulting_api.services.skills import DRAFT_DISCLAIMER
@@ -64,6 +66,22 @@ def test_confidence():
     assert check_confidence("### H1\n**Confidence:** High\nevidence", required=True).passed
     assert not check_confidence("### H1\nno confidence label here", required=True).passed
     assert check_confidence("no label", required=False).passed  # skipped
+
+
+def test_parse_judge_scores():
+    raw = '```json\n{"groundedness": 4, "relevance": 5, "citation_faithfulness": 3, "rationale": "ok"}\n```'
+    scores = parse_judge_scores(raw)
+    assert scores == {"groundedness": 4, "relevance": 5, "citation_faithfulness": 3, "rationale": "ok"}
+    assert parse_judge_scores("not json at all") == {}
+    # clamps out-of-range and ignores junk values
+    clamped = parse_judge_scores('{"groundedness": 9, "relevance": "x", "citation_faithfulness": 0}')
+    assert clamped["groundedness"] == 5 and clamped["citation_faithfulness"] == 1
+    assert "relevance" not in clamped
+
+
+def test_judge_min_score():
+    assert judge_min_score({"groundedness": 4, "relevance": 5, "citation_faithfulness": 3}) == 3
+    assert judge_min_score({}) is None
 
 
 def test_run_checks_aggregates_all():

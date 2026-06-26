@@ -373,7 +373,12 @@ Consulting-specific additions:
   decide"), confidence ranking (hypotheses), and citation integrity. It
   calls the real LLM (~cents/run) — run on demand after a prompt/version change, not in CI;
   `--dry-run` lists cases without calling. The check functions are pure + unit-tested
-  (`tests/test_eval_checks.py`); LLM-as-judge is intentionally deferred (cost + reliability)
+  (`tests/test_eval_checks.py`). **Opt-in `--judge`** adds an LLM-as-judge pass scoring
+  content quality (groundedness / relevance / citation faithfulness, 1–5) — a soft,
+  advisory signal (warns on <3, never gates the exit code). Default judge = the configured
+  model (~free); `--judge-model gpt-4o` uses a stronger, more critical judge (~$0.06/full
+  run) — recommended for before/after comparisons on prompt or model changes. (The mini
+  judge is lenient — e.g. it scored a draft groundedness 5 where gpt-4o scored it 2.)
 
 ---
 
