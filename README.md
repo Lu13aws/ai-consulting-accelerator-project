@@ -23,14 +23,22 @@ ai-consulting-accelerator-project/
 │   │   ├── api/
 │   │   │   ├── routes.py           # generic /api/v1 routes (query, structure, skills, sources)
 │   │   │   ├── consulting_routes.py# UI-facing /api/v1/consulting/* alias routes
+│   │   │   ├── engagement_routes.py# /api/v1/consulting/engagements* (create/answer/conclude/generate/report/lifecycle)
 │   │   │   └── schemas.py          # Pydantic request/response models
-│   │   └── services/
-│   │       ├── consulting_service.py  # query() + structure_artifact() (RAG, language lock)
-│   │       └── skills.py           # named/versioned structuring skill registry (by layer)
+│   │   ├── services/
+│   │   │   ├── consulting_service.py  # query() + structure_artifact() (RAG, language lock)
+│   │   │   ├── skills.py           # named/versioned structuring skill registry (by layer)
+│   │   │   ├── engagement_service.py  # stateful multi-round discovery (turns, conclude, hand-off)
+│   │   │   ├── report_render.py    # engagement report → Markdown / Word (python-docx) / PDF (fpdf2)
+│   │   │   └── eval_checks.py      # pure rule-based quality checks + judge-reply parsing
+│   │   └── storage/
+│   │       ├── engagement_db.py    # dedicated engine (CONSULTING_ENGAGEMENT_DB_URL — isolated DB)
+│   │       └── engagement_models.py# Engagement ORM (turns/extras JSONB, archived, assessment)
 │   └── consulting_ui/              # Next.js demo UI (sidebar app, dark theme, static export)
-│       └── src/{app,components,lib}
+│       └── src/{app,components,lib}   # incl. app/engagements (guided Discovery→Analysis→Delivery)
 ├── scripts/
 │   ├── ingest_frameworks.py        # bulk .pdf/.html ingestion (dedup, language/category metadata)
+│   ├── eval.py                     # quality eval harness (golden cases + rule checks + opt-in LLM judge)
 │   ├── deploy.py                   # Lambda container + API Gateway HTTP API (VPC, JWT)
 │   ├── deploy_frontend.py          # build + ship UI to S3 + CloudFront
 │   └── setup_consulting_cognito.py # (optional) Cognito demo pool
@@ -95,12 +103,32 @@ User input  (UI /structure, /discovery, /stakeholders)
 → LLM → structured Markdown artifact + sources + draft disclaimer
 ```
 
+**Engagements (Phase 2 — stateful, multi-round discovery):**
+
+```
+Initial situation  (UI /engagements)
+→ POST /engagements                    create: analysis + hypotheses + open questions
+→ POST /engagements/{id}/answer        repeatable round: Updated Findings (delta) + next, deeper questions
+                                       (append-only JSONB `turns`; status=in_discovery)
+→ POST /engagements/{id}/conclude      synthesis: classified requirements + consultant assessment
+                                       (status=concluded)
+→ POST /engagements/{id}/generate      hand-off: Roadmap / Stakeholder Analysis from the engagement
+                                       context, attached under JSONB `extras` (one case file)
+→ GET  /engagements/{id}/report        export everything as one file (?format=md|docx|pdf)
+→ PATCH / DELETE /engagements/{id}     lifecycle: rename, archive (hidden by default), delete
+
+Persisted via a DEDICATED engine (CONSULTING_ENGAGEMENT_DB_URL) — an isolated DB in prod,
+never the shared public db-v2 (confidential client data).
+```
+
 ---
 
 ## Capabilities
 
 The product is organised as a **Discovery → Analysis → Delivery** workflow. Each
 capability is a named, versioned **skill** (single-shot, grounded, cited, language-faithful).
+
+**11 skills** across three layers, invoked by name (not similarity):
 
 | Layer | Tool | Endpoint |
 |---|---|---|
@@ -109,11 +137,17 @@ capability is a named, versioned **skill** (single-shot, grounded, cited, langua
 | Discovery | Stakeholder analysis (RACI, influence/interest, comms) | `POST /api/v1/consulting/stakeholders` |
 | Discovery | Risks · Assumptions · Open Questions · Hypotheses · Interview Guide | `POST /api/v1/consulting/run` (`{skill, inputs}`) |
 | Analysis | Requirements (classification + INVEST stories + quality flags) | `POST /api/v1/consulting/structure/requirements` |
+| Analysis | Refine analysis (delta) · Consultant assessment (preliminary) | via engagements / `run` |
 | Delivery | Roadmap + agile backlog | `POST /api/v1/consulting/structure/roadmap` |
 | — | List skills (with layer) | `GET /api/v1/consulting/skills` |
 
+**Engagements** tie the layers into one stateful case file: multi-round discovery →
+conclude (synthesis) → generate downstream artifacts → export (`md`/`docx`/`pdf`) →
+lifecycle (rename/archive/delete). See the Engagements data-flow block above;
+endpoints under `POST/GET/PATCH/DELETE /api/v1/consulting/engagements*`.
+
 UI routes: `/dashboard` (tools grouped by layer), `/chat`, `/discovery`, `/structure`
-(Business Problem / Requirements / Roadmap tabs), `/stakeholders`.
+(Business Problem / Requirements / Roadmap tabs), `/stakeholders`, `/engagements`.
 
 ---
 
@@ -145,7 +179,8 @@ cd ../ai-platform-project-v1 && docker compose up -d postgres
 ```
 APP_ENV, DATABASE_URL (postgresql+asyncpg://…), ALEMBIC_DATABASE_URL,
 LLM_PROVIDER, OPENAI_API_KEY, OPENAI_CHAT_MODEL, OPENAI_EMBEDDING_MODEL,
-MAX_CHUNKS_PER_DOC
+MAX_CHUNKS_PER_DOC,
+CONSULTING_ENGAGEMENT_DB_URL   # engagement persistence; isolated DB in prod, falls back to DATABASE_URL locally
 ```
 
 UI env (`apps/consulting_ui/.env.local`): `NEXT_PUBLIC_API_URL` (defaults to
@@ -163,6 +198,11 @@ cd apps/consulting_ui && npm install && npm run dev               # http://local
 # tests / lint
 uv run pytest -q
 uv run ruff check apps/ scripts/ tests/
+
+# quality eval harness (runs the real skills — costs ~cents; see below)
+uv run python scripts/eval.py --dry-run                 # list golden cases, no LLM calls
+uv run python scripts/eval.py                            # rule-based checks
+uv run python scripts/eval.py --judge --judge-model gpt-4o   # + LLM content judge (advisory)
 ```
 
 ---
@@ -185,6 +225,26 @@ Full bulk ingest of the framework set costs roughly **$2–5** in embeddings (on
 
 > Saved web pages (e.g. SAFe) only ingest if a complete `.html` file exists; asset-only
 > `*_files/` folders are skipped.
+
+---
+
+## Quality Eval Harness
+
+`scripts/eval.py` runs golden cases (DE + EN, 16 across the skills) through the **real**
+skills and scores each output. It calls the LLM, so run it on demand (e.g. after a
+prompt/version change), not in CI.
+
+**Rule-based checks** (`eval_checks.py` — pure, unit-tested): non-empty · language lock
+(output language == input language) · draft disclaimer · structure (headings/table/list) ·
+required sections (EN — DE headings get translated) · preliminary-framing caveats
+(bilingual; guards "AI assists, does not decide") · confidence ranking (hypotheses) ·
+citation integrity (no `[n]` without a matching source).
+
+**Opt-in `--judge`** adds an LLM-as-judge pass scoring **groundedness / relevance /
+citation faithfulness** (1–5) — a soft, advisory signal (warns on <3, never gates the exit
+code). Default judge = the configured model (~free); `--judge-model gpt-4o` is a stronger,
+more critical judge (~$0.06/full run) for before/after comparisons. (The cheap judge is
+lenient — it scored a draft groundedness 5 where gpt-4o scored it 2.)
 
 ---
 
@@ -280,20 +340,23 @@ own Lambda build).
 
 ## Future Improvements
 
-### Workflow depth (Phase 2)
-- **Interview / Discovery mode** — multi-turn, stateful: analysis → hypotheses →
-  clarification questions → refined analysis → requirements
-- **Engagement persistence** on an **isolated DB** (confidential client data must never use
-  the shared public `db-v2`)
+### Done since the MVP
+- ✅ **Interview / Discovery mode (Phase 2)** — stateful, multi-round engagements (turns →
+  conclude), context hand-off to Roadmap/Stakeholders, one-file report export (md/docx/pdf),
+  lifecycle (rename/archive/delete), persisted via a dedicated engine.
+- ✅ **Quality eval harness** — golden cases + rule checks + opt-in LLM-as-judge.
 
 ### Delivery layer (Phase 3, high-caution)
 - Architecture recommendation (grounded in AWS Well-Architected), effort/cost estimation and
   proposal generation — only with explicit confidence levels and "requires validation"
 
 ### Quality & ops
-- Evaluation harness for output quality (language fidelity, grounding, structure)
-- Auth for any client-facing / confidential use (Cognito JWT scaffolding already exists)
-- Deploy the public demo (Lambda + API Gateway + S3/CloudFront) and a custom domain
+- **Deploy** the public demo (Lambda + API Gateway + S3/CloudFront) and a custom domain
+- A **real isolated DB** for engagements in prod (the dedicated engine + env seam exist;
+  it currently falls back to `DATABASE_URL` locally) + auth for confidential use
+  (Cognito JWT scaffolding already exists)
+- Expand the eval harness: more golden cases, an `engagement`-flow case (covers
+  `refine-analysis`), and periodic `gpt-4o` judge baselines
 - Content-based language tagging at ingestion (replace the filename heuristic)
 
 ---
@@ -328,6 +391,27 @@ discovery skills (risks, assumptions, open-questions, hypotheses, interview-guid
 **Result**
 Nine skills across three layers; 38 tests green; cross-lingual output drift fixed.
 
+**Phase 2 — Engagements (stateful discovery) + quality**
+- Stateful engagements: kickoff → **multi-round** answer loop (append-only `turns`, each round
+  = delta-aware Updated Findings + next, deeper open questions) → **conclude** (classified
+  requirements + a preliminary consultant assessment). Persisted via a dedicated engine
+  (`CONSULTING_ENGAGEMENT_DB_URL`) — isolated DB in prod, never the shared public `db-v2`.
+- Added skills `refine-analysis` (delta) and `consultant-assessment` (preliminary); hardened
+  prompts (hypotheses ranked by confidence, context-aware questions, goal/requirement/story split).
+- **Context hand-off:** generate Roadmap / Stakeholder Analysis from an engagement's context,
+  attached under JSONB `extras` — the engagement becomes one Discovery→Analysis→Delivery case file.
+- **Report export:** `GET /engagements/{id}/report?format=md|docx|pdf` composes every artifact
+  into one downloadable file (Word via python-docx, PDF via fpdf2 — both pure-Python/Lambda-safe).
+- **Lifecycle:** rename / archive (hidden by default) / delete; fixed a CORS gap (PATCH/DELETE
+  were blocked by the browser preflight).
+- **Quality eval harness** (`scripts/eval.py`): 16 golden cases (DE/EN) × rule-based checks
+  (language lock, disclaimer, structure, sections, preliminary-framing, confidence, citations)
+  + opt-in LLM-as-judge (groundedness/relevance/citations; `--judge-model gpt-4o`).
+
+**Result**
+11 skills; the full Discovery → Analysis → Delivery workflow as a single engagement case file;
+66 tests green; quality measurable on demand.
+
 ---
 
 ## Scripts
@@ -335,6 +419,7 @@ Nine skills across three layers; 38 tests green; cross-lingual output drift fixe
 | Script | Purpose | Usage |
 |---|---|---|
 | `scripts/ingest_frameworks.py` | Ingest `data/` PDFs/HTML into pgvector (dedup, metadata) | `uv run python scripts/ingest_frameworks.py --folder data/` |
+| `scripts/eval.py` | Quality eval: golden cases → rule checks (+ opt-in LLM judge). Calls the real LLM (~cents) | `uv run python scripts/eval.py [--judge --judge-model gpt-4o]` |
 | `scripts/deploy.py` | Build/push Lambda image; provision Lambda + API Gateway (VPC, JWT). `--build-only` validates the image with no AWS | `uv run python scripts/deploy.py` |
 | `scripts/deploy_frontend.py` | Build the static UI and ship to S3 + CloudFront | `uv run python scripts/deploy_frontend.py` |
 | `scripts/setup_consulting_cognito.py` | (Optional) create the Cognito demo pool | `uv run python scripts/setup_consulting_cognito.py` |
