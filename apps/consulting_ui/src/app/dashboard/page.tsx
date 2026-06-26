@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Briefcase,
   ClipboardList,
   FileText,
   HelpCircle,
@@ -64,6 +65,28 @@ export default function DashboardPage() {
           a draft for human review, grounded in cited frameworks.
         </p>
       </div>
+
+      {/* Guided, cross-layer workflow (Discovery → Analysis) */}
+      <Link
+        href="/engagements"
+        className="group mb-10 flex items-start gap-4 rounded-lg border border-blue-800/60 bg-blue-950/20 p-5 transition-colors hover:border-blue-600 hover:bg-blue-950/40"
+      >
+        <Briefcase size={22} className="mt-0.5 shrink-0 text-blue-400" />
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-100 group-hover:text-blue-400 transition-colors">
+              Guided Engagement
+            </h2>
+            <span className="rounded bg-blue-950 px-1.5 py-0.5 text-[10px] text-blue-300">
+              Discovery → Analysis
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-slate-400 leading-relaxed">
+            A stateful, multi-step discovery: describe the situation → review analysis,
+            hypotheses &amp; open questions → answer → refined analysis and requirements.
+          </p>
+        </div>
+      </Link>
 
       <div className="flex flex-col gap-10">
         {LAYERS.map((layer) => (
