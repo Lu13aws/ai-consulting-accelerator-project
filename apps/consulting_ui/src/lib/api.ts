@@ -120,4 +120,5 @@ export const api = {
     post<EngagementDetail>(`/engagements/${id}/conclude`, {}),
   generateFromEngagement: (id: string, tool: string) =>
     post<EngagementDetail>(`/engagements/${id}/generate`, { tool }),
+  reportUrl: (id: string) => `${BASE}/engagements/${id}/report`,
 };

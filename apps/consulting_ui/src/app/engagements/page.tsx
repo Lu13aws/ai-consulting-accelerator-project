@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
 
 import Markdown from "@/components/Markdown";
 import { api, type EngagementDetail, type EngagementSummary } from "@/lib/api";
@@ -221,6 +221,12 @@ function DetailView({ id }: { id: string }) {
         <div className="mt-2 flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-slate-100">{eng.title}</h1>
           <StatusBadge status={eng.status} />
+          <a
+            href={api.reportUrl(eng.id)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-blue-600 hover:text-blue-400"
+          >
+            <Download size={12} /> Export report
+          </a>
         </div>
       </div>
 

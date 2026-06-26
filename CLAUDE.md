@@ -39,12 +39,12 @@ synthesizes classified Requirements + a Consultant's Assessment (`status="conclu
 are stored append-only in a JSONB `turns` column. Persisted via a **dedicated engine**
 (`CONSULTING_ENGAGEMENT_DB_URL`) that must point at an **isolated DB** in production (never the
 shared public db-v2). Routes: `/api/v1/consulting/engagements*` (create / answer / conclude /
-generate). **Context hand-off:** from a concluded engagement, generate downstream artifacts
-(Roadmap, Stakeholder Analysis) from its context; they attach under a JSONB `extras` column
-— the engagement becomes the single case file (Discovery → Analysis → Delivery). UI: `/engagements`. **Context hand-off:** from a refined engagement you can generate
-downstream artifacts (Roadmap, Stakeholder Analysis) from its context; they attach to the
-engagement under a JSONB `extras` column (`POST /engagements/{id}/generate`) — the engagement
-becomes the single case file (Discovery → Analysis → Delivery).
+generate / report). **Context hand-off:** from a concluded engagement, generate downstream
+artifacts (Roadmap, Stakeholder Analysis) from its context; they attach under a JSONB `extras`
+column (`POST /engagements/{id}/generate`) — the engagement becomes the single case file
+(Discovery → Analysis → Delivery). **Report export:** `GET /engagements/{id}/report` composes
+every artifact (situation, analysis, all rounds, requirements, assessment, downstream) into one
+downloadable Markdown file. UI: `/engagements`.
 
 ## What This Product Is NOT
 

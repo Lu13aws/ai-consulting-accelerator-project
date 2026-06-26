@@ -25,6 +25,42 @@ def _title(text: str) -> str:
     return (first[:97] + "…") if len(first) > 98 else first
 
 
+def build_report(engagement: Engagement) -> str:
+    """Compose all of an engagement's artifacts into one Markdown report (pure)."""
+    parts: list[str] = [
+        f"# {engagement.title}",
+        "_AI Consulting Accelerator — engagement report. AI-generated draft for human "
+        "review; validate before use._",
+        f"Status: {engagement.status}",
+    ]
+
+    def section(title: str, body: str | None) -> None:
+        if body and body.strip():
+            parts.append(f"## {title}\n\n{body.strip()}")
+
+    section("Situation", engagement.initial_input)
+    section("Initial Analysis", engagement.initial_analysis)
+    section("Hypotheses", engagement.hypotheses)
+
+    for i, turn in enumerate(engagement.turns or [], start=1):
+        section(f"Round {i} — Answers", turn.get("answers"))
+        section(f"Round {i} — Updated Findings", turn.get("findings"))
+
+    # Legacy (pre-turns) engagements kept answers/refined in columns
+    if not (engagement.turns or []):
+        section("Answers", engagement.answers)
+        section("Refined Analysis", engagement.refined_analysis)
+
+    section("Requirements", engagement.requirements)
+    section("Consultant's Assessment", engagement.assessment)
+
+    extras = engagement.extras or {}
+    section("Roadmap", extras.get("roadmap"))
+    section("Stakeholder Analysis", extras.get("stakeholders"))
+
+    return "\n\n".join(parts) + "\n"
+
+
 class EngagementService:
     def __init__(self, engagement_session: AsyncSession, rag_session: AsyncSession) -> None:
         self._eng = engagement_session

@@ -1,15 +1,16 @@
 """
 Engagement routes (Phase 2) under /api/v1/consulting/engagements.
 
-A stateful, 2-round discovery flow. Persistence uses the dedicated engagement session
+A stateful, multi-round discovery flow. Persistence uses the dedicated engagement session
 (confidential DB); skill calls reuse the RAG/vector session.
 """
 
+import re
 from uuid import UUID
 
 from aiplatform.retrieval.embedder import CostLimitExceeded
 from aiplatform.storage.database import get_session
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.consulting_api.api.schemas import (
@@ -20,7 +21,7 @@ from apps.consulting_api.api.schemas import (
     EngagementSummary,
     GenerateRequest,
 )
-from apps.consulting_api.services.engagement_service import EngagementService
+from apps.consulting_api.services.engagement_service import EngagementService, build_report
 from apps.consulting_api.storage.engagement_db import get_engagement_session
 from apps.consulting_api.storage.engagement_models import Engagement
 
@@ -139,3 +140,20 @@ async def generate_downstream(
         # Unknown tool → 422; missing engagement → 404
         code = status.HTTP_404_NOT_FOUND if "not found" in str(exc) else status.HTTP_422_UNPROCESSABLE_ENTITY
         raise HTTPException(status_code=code, detail=str(exc)) from exc
+
+
+@router.get("/{engagement_id}/report")
+async def engagement_report(
+    engagement_id: UUID,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+) -> Response:
+    """Download the whole engagement as one Markdown report."""
+    engagement = await EngagementService(eng_session, eng_session).get(engagement_id)
+    if engagement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found.")
+    slug = re.sub(r"[^a-z0-9]+", "-", engagement.title.lower()).strip("-")[:50] or "engagement"
+    return Response(
+        content=build_report(engagement),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.md"'},
+    )
