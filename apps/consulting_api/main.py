@@ -96,7 +96,7 @@ _extra_origins = [o.strip() for o in os.environ.get("CONSULTING_CORS_ORIGINS", "
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if settings.is_development else [*_PRODUCTION_ORIGINS, *_extra_origins],
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
