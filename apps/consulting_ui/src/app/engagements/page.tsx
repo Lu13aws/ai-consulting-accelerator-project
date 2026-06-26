@@ -218,6 +218,7 @@ function DetailView({ id }: { id: string }) {
           <Section title="Answers" body={eng.answers} />
           <Section title="Refined Analysis" body={eng.refined_analysis} />
           <Section title="Requirements" body={eng.requirements} />
+          <Section title="Consultant's Assessment" body={eng.assessment} />
         </>
       )}
     </div>

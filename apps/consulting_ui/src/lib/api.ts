@@ -59,6 +59,7 @@ export interface EngagementDetail {
   answers: string | null;
   refined_analysis: string | null;
   requirements: string | null;
+  assessment: string | null;
   created_at: string;
   updated_at: string;
 }

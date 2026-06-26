@@ -284,14 +284,16 @@ a taxonomy for the UI/workflow, not separate systems.
 
 | Skill name | Version | Layer | Purpose |
 |---|---|---|---|
-| `consulting.structure-business-problem` | v1.3 | discovery | Current/target state, pain points, goals, success metrics, root cause, stakeholders, impact, scope |
+| `consulting.structure-business-problem` | v1.4 | discovery | Complementary sections (situation, current→target gap, pain points, goals & metrics, **preliminary** root cause, stakeholders, impact, scope) |
 | `consulting.analyze-stakeholders` | v1.2 | discovery | Role categories, RACI skeleton, influence/interest, engagement levels, communication plan |
 | `consulting.identify-risks` | v1.0 | discovery | Risk · Impact · Probability · Recommendation |
 | `consulting.detect-assumptions` | v1.0 | discovery | Implicit assumptions to validate |
-| `consulting.open-questions` | v1.0 | discovery | Clarification questions before solutioning |
-| `consulting.generate-hypotheses` | v1.0 | discovery | Explicitly-labelled root-cause hypotheses |
+| `consulting.open-questions` | v1.1 | discovery | Context-aware clarification questions (reference what the user said) |
+| `consulting.generate-hypotheses` | v1.1 | discovery | Evidence-grounded, confidence-ranked root-cause hypotheses |
 | `consulting.interview-guide` | v1.0 | discovery | Stakeholder discovery interview guide |
-| `consulting.structure-requirements` | v1.3 | analysis | Requirement classification (BR/FR/NFR/…) + INVEST user stories + quality flags |
+| `consulting.structure-requirements` | v1.4 | analysis | Goal vs requirement vs user-story split; INVEST stories; suggested capabilities (to validate); quality flags |
+| `consulting.refine-analysis` | v1.0 | analysis | Delta-aware refinement (Updated Findings) from answers — used by engagement round 2 |
+| `consulting.consultant-assessment` | v1.0 | analysis | AI-assisted assessment + prioritisation (risks/impact/quick wins) — preliminary, to validate |
 | `consulting.structure-roadmap` | v1.0 | delivery | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
 
 **Input contract:** structured user context (defined required fields per skill)

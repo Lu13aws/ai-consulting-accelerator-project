@@ -137,6 +137,7 @@ class EngagementDetail(BaseModel):
     answers: str | None = None
     refined_analysis: str | None = None
     requirements: str | None = None
+    assessment: str | None = None
     created_at: datetime
     updated_at: datetime
 

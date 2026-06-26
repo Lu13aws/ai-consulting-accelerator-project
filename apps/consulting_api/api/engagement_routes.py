@@ -39,6 +39,7 @@ def _detail(e: Engagement) -> EngagementDetail:
         answers=e.answers,
         refined_analysis=e.refined_analysis,
         requirements=e.requirements,
+        assessment=e.assessment,
         created_at=e.created_at,
         updated_at=e.updated_at,
     )

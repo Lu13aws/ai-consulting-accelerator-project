@@ -15,6 +15,7 @@ const TOOLS = [
   { skill: "consulting.open-questions", label: "Open Questions", placeholder: "Describe what you know so far — we'll list what's still open…" },
   { skill: "consulting.generate-hypotheses", label: "Hypotheses", placeholder: "Describe the problem whose root cause is unclear…" },
   { skill: "consulting.interview-guide", label: "Interview Guide", placeholder: "Describe the project to build a discovery interview guide…" },
+  { skill: "consulting.consultant-assessment", label: "Consultant Assessment", placeholder: "Describe the situation for an initial assessment + prioritisation…" },
 ];
 
 function DiscoveryInner() {

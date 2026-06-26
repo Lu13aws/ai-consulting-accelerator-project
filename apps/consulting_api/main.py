@@ -41,6 +41,15 @@ def _bootstrap_schema() -> None:
 
         eng_engine = _create_sync_engine(ENGAGEMENT_DB_URL.replace("+asyncpg", ""))
         EngagementBase.metadata.create_all(eng_engine)
+        # create_all does not add columns to an existing table — apply additive changes.
+        from sqlalchemy import text as _sql_text
+
+        with eng_engine.begin() as conn:
+            conn.execute(
+                _sql_text(
+                    "ALTER TABLE consulting_engagements ADD COLUMN IF NOT EXISTS assessment TEXT"
+                )
+            )
         eng_engine.dispose()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Engagement schema bootstrap skipped: %s", exc)

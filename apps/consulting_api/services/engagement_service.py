@@ -61,26 +61,38 @@ class EngagementService:
         return engagement
 
     async def answer(self, engagement_id: UUID, answers: str) -> Engagement:
-        """Round 2: incorporate the answers into a refined analysis + requirements."""
+        """Round 2: refine (delta), derive requirements, and add a consultant assessment."""
         engagement = await self._eng.get(Engagement, engagement_id)
         if engagement is None:
             raise ValueError(f"Engagement {engagement_id} not found.")
 
+        # Delta-aware refinement: show what the answers changed (not a re-run).
+        refined = await self._run(
+            "consulting.refine-analysis",
+            {
+                "initial_analysis": engagement.initial_analysis or "",
+                "open_questions": engagement.open_questions or "",
+                "answers": answers,
+                "initial_input": engagement.initial_input,
+            },
+        )
+
         enriched = (
             f"{engagement.initial_input}\n\n"
-            f"Open questions:\n{engagement.open_questions or ''}\n\n"
             f"Answers to the open questions:\n{answers}"
-        )
-        refined = await self._run(
-            "consulting.structure-business-problem", {"problem_description": enriched}
         )
         requirements = await self._run(
             "consulting.structure-requirements", {"requirements": enriched}
+        )
+        assessment = await self._run(
+            "consulting.consultant-assessment",
+            {"context": f"{engagement.initial_input}\n\nRefined analysis:\n{refined}\n\nAnswers:\n{answers}"},
         )
 
         engagement.answers = answers
         engagement.refined_analysis = refined
         engagement.requirements = requirements
+        engagement.assessment = assessment
         engagement.status = "refined"
         await self._eng.flush()
         return engagement

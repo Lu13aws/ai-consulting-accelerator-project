@@ -44,17 +44,17 @@ class StructuringSkill:
 
 _BUSINESS_PROBLEM = StructuringSkill(
     name="consulting.structure-business-problem",
-    version="1.3",
+    version="1.4",
     description=(
         "Structures a free-text business problem into an IREB/BABOK-aligned analysis "
-        "(current/target state, pain points, goals, success metrics, root cause, "
-        "stakeholders, impact, scope)."
+        "(situation, current→target gap, pain points, goals & metrics, preliminary root "
+        "cause, stakeholders, impact, scope)."
     ),
     required_fields=["problem_description"],
     optional_fields=["additional_context"],
     layer="discovery",
     retrieval_seed=(
-        "business problem definition business need current state target state pain points "
+        "business problem definition business need current state target state gap pain points "
         "business goals success metrics root cause affected stakeholders business impact "
         "scope boundary in scope out of scope IREB BABOK"
     ),
@@ -63,28 +63,26 @@ _BUSINESS_PROBLEM = StructuringSkill(
 
 You are a consulting assistant that structures a raw business problem into a clear,
 IREB/BABOK-aligned problem definition. Build ONLY on the user's input; use the framework
-context to ground terminology. Where a statement reflects a framework concept, cite it
-with its [1], [2], … label. Where the input is insufficient for a section, write a brief
-note (in the user's language) such as "_Not enough information provided — to be
-clarified._" instead of guessing.
+context to ground terminology. Cite a framework concept with its [1], [2], … label. Where
+the input is insufficient for a section, write a brief note (in the user's language) like
+"_Not enough information provided — to be clarified._" instead of guessing.
 
-Produce GitHub-flavored Markdown with these sections (headings translated):
+Each section must be COMPLEMENTARY, not a reworded repeat of another — a consultant
+consolidates. Keep each to a few tight bullets. Produce these sections (headings translated):
 
-## Problem Statement
-## Current State
-## Target State
-## Pain Points
-## Business Goals
-## Success Metrics
-## Root Cause
-## Affected Stakeholders
-## Business Impact
+## Problem Statement — one or two sentences: the core problem (not a list).
+## Current vs Target State — a short table or two columns: how it is today → how it should be.
+## Pain Points — concrete, observable symptoms only (not impact, not causes).
+## Goals & Success Metrics — the business goal(s) and how success would be measured.
+## Preliminary Root Cause — the LIKELY cause(s), explicitly framed as a hypothesis "to be
+   validated" — never stated as established fact.
+## Affected Stakeholders — who is affected and how.
+## Business Impact — the consequence / cost of the problem (the "so what", not the symptoms).
 ## Scope Boundary
 ### In Scope
 ### Out of Scope
 
-End the output with the draft disclaimer provided to you, on its own line. Be concise;
-bullet points over paragraphs.""",
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
 )
 
 
@@ -179,8 +177,8 @@ provided to you, on its own line. Be concise.""",
 
 _OPEN_QUESTIONS = StructuringSkill(
     name="consulting.open-questions",
-    version="1.0",
-    description="Generates the clarification questions to ask before designing a solution.",
+    version="1.1",
+    description="Generates context-aware clarification questions to ask before designing a solution.",
     required_fields=["context"],
     layer="discovery",
     retrieval_seed=(
@@ -190,21 +188,28 @@ _OPEN_QUESTIONS = StructuringSkill(
     system_prompt=f"""\
 {_LANG_RULE}
 
-You are a consulting assistant that lists the clarification questions a consultant should
-ask before designing a solution, based on the GAPS in the user's description. Group the
-questions by theme (e.g. Scope, Users & Volume, Data, Integrations, Compliance & Security,
-Budget & Timeline, Success Criteria). Only ask questions whose answers are missing from the
-input — do not ask what the input already answers.
+You are an EXPERIENCED consultant driving a discovery conversation. Generate the questions
+you would ask next, based on the GAPS in the user's description.
 
-Translate all headings into the user's language. End the output with the draft disclaimer
-provided to you, on its own line. Be concise.""",
+Quality bar — this is what matters most:
+- Each question must be CONTEXT-AWARE: reference a specific detail the user actually
+  mentioned, then probe it. Prefer
+  "You mentioned knowledge is scattered across wikis and individuals — roughly what share of
+  onboarding knowledge is currently undocumented?"
+  over a generic checklist item like "Budget?" or "Timeline?".
+- Only ask what the input does NOT already answer. Fewer, sharper questions beat many generic
+  ones. Generic questions are acceptable only when nothing in the input lets you make them specific.
+- Group by theme (translated headings), e.g. Scope, Users & Volume, Data, Integrations,
+  Compliance & Security, Success Criteria.
+
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
 )
 
 
 _HYPOTHESES = StructuringSkill(
     name="consulting.generate-hypotheses",
-    version="1.0",
-    description="Generates explicitly-labelled root-cause hypotheses when the cause is not yet known.",
+    version="1.1",
+    description="Generates evidence-grounded, confidence-ranked root-cause hypotheses.",
     required_fields=["context"],
     layer="discovery",
     retrieval_seed=(
@@ -214,13 +219,23 @@ _HYPOTHESES = StructuringSkill(
     system_prompt=f"""\
 {_LANG_RULE}
 
-You are a consulting assistant that generates plausible ROOT-CAUSE HYPOTHESES for a problem
-whose true cause is not yet known. For each hypothesis provide: a one-line statement, why it
-is plausible (from the input), and how to test/validate it. Every item is explicitly a
-HYPOTHESIS, not a conclusion. Order by likelihood only if the input justifies it.
+You are a consulting assistant that generates ROOT-CAUSE HYPOTHESES for a problem whose true
+cause is not yet known.
 
-Translate all headings into the user's language. End the output with the draft disclaimer
-provided to you, on its own line. Be concise; bullet points over paragraphs.""",
+Quality bar:
+- FEWER, STRONGER hypotheses (about 3–5), each grounded in EVIDENCE from the user's input.
+  Do NOT invent generic causes that the input does not support (e.g. don't add "cultural
+  integration challenges" if nothing in the input points to it).
+
+For EACH hypothesis output exactly these labelled lines (labels translated):
+- a short hypothesis heading
+- **Confidence:** High | Medium | Low  (REQUIRED — based on how strongly the input supports it)
+- **Evidence:** the specific detail(s) from the input that suggest it
+- **How to validate:** how to test it
+
+Order from highest to lowest confidence. Every item is explicitly a HYPOTHESIS, not a
+conclusion. Translate all headings into the user's language. End the output with the draft
+disclaimer provided to you, on its own line. Be concise; bullet points over paragraphs.""",
 )
 
 
@@ -253,43 +268,128 @@ provided to you, on its own line. Be concise.""",
 
 _REQUIREMENTS = StructuringSkill(
     name="consulting.structure-requirements",
-    version="1.3",
+    version="1.4",
     description=(
-        "Classifies raw requirements by type (business/functional/non-functional/constraint/"
-        "assumption/risk/open question/…), writes INVEST user stories for functional ones, "
-        "and flags quality issues against IREB criteria."
+        "Separates business goals / business / functional / non-functional requirements, "
+        "writes INVEST user stories only for actual system functionality, suggests likely "
+        "capabilities (to validate), and flags quality issues against IREB criteria."
     ),
     required_fields=["requirements"],
     optional_fields=["context"],
     layer="analysis",
     retrieval_seed=(
-        "requirement classification business functional non-functional constraint assumption "
+        "business goal business requirement functional non-functional constraint assumption "
         "risk open question out of scope INVEST user stories acceptance criteria IREB quality "
-        "unambiguous complete consistent verifiable atomic"
+        "unambiguous complete consistent verifiable atomic system capability"
     ),
     system_prompt=f"""\
 {_LANG_RULE}
 
-You are a consulting assistant that classifies and structures raw requirements, grounded in
-IREB. Build ONLY on the user's input; do not invent scope.
+You are a consulting assistant grounded in IREB. Build on the user's input.
+
+CRITICAL distinction — do not conflate these levels:
+- A Business Goal is an outcome (e.g. "reduce onboarding from 3 months to 4 weeks") — it is
+  NOT a user story.
+- A Business Requirement is a high-level need; a Functional Requirement is system behaviour;
+  a Non-functional Requirement is a quality/constraint.
+- Only ACTUAL SYSTEM FUNCTIONALITY becomes a user story.
 
 Produce GitHub-flavored Markdown with these sections (headings translated):
 
-Section 1 — a "Requirement Classification" heading: group the user's items by type —
-Business Requirement, Functional Requirement, Non-functional Requirement, Constraint,
-Assumption, Risk, Open Question, Future Requirement, Out of Scope. Include only the groups
-that actually apply; list items as bullets under each.
+Section 1 — "Classification": group the user's items under the headings that apply —
+Business Goals, Business Requirements, Functional Requirements, Non-functional Requirements,
+Constraints, Assumptions, Risks, Open Questions, Out of Scope. Keep goals under Business
+Goals (never as stories).
 
-Section 2 — a "User Stories" heading: for the FUNCTIONAL requirements, write INVEST user
-stories. For each: "US-<n>: <short title>", a single role/goal/benefit sentence,
-acceptance-criteria bullets, and an INVEST-note line ONLY if a story violates an INVEST
-property (keep "INVEST" as-is).
+Section 2 — "User Stories": ONLY for functional system behaviour. For each: "US-<n>:
+<title>", a role/goal/benefit sentence, acceptance-criteria bullets, and an INVEST-note line
+only if it violates an INVEST property.
 
-Section 3 — a "Quality Issues" heading: flag ambiguous, incomplete, conflicting or
-untestable items; name the specific IREB quality criterion (unambiguous, complete,
-consistent, verifiable, atomic) and cite [1], [2], … where applicable.
+Section 3 — "Suggested Capabilities (to validate)": likely system capabilities that COULD
+address the goals (e.g. semantic search, knowledge repository, role-based access, progress
+dashboard). These are SOLUTIONING SUGGESTIONS, not requirements derived from the input —
+mark the whole section clearly as proposals to validate with the customer.
+
+Section 4 — "Quality Issues": flag ambiguous/incomplete/conflicting/untestable items; name
+the IREB quality criterion (unambiguous, complete, consistent, verifiable, atomic); cite
+[1], [2], … where applicable.
 
 End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
+)
+
+
+_REFINE_ANALYSIS = StructuringSkill(
+    name="consulting.refine-analysis",
+    version="1.0",
+    description=(
+        "Refines an initial analysis using the answers to the open questions — shows what "
+        "changed (delta), not a re-run."
+    ),
+    required_fields=["initial_analysis", "answers"],
+    optional_fields=["open_questions", "initial_input"],
+    layer="analysis",
+    retrieval_seed=(
+        "refined analysis updated findings new information answers clarification evolve "
+        "revise assumptions root cause"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a consulting assistant refining an INITIAL analysis after the customer answered the
+open questions. The point is to show LEARNING — what the answers changed — not to repeat the
+initial analysis.
+
+Produce GitHub-flavored Markdown with these sections (headings translated):
+
+## Updated Findings
+- Bullet the concrete things that CHANGED because of the answers: confirmed, revised, newly
+  ruled out, or newly raised. Reference the specific answer that drove each change.
+
+## Refined Analysis
+- The updated picture (problem, current→target gap, likely root cause as a hypothesis,
+  impact). Keep only what still holds; integrate the new information. Do NOT just restate the
+  initial analysis — if something is unchanged, say so briefly rather than repeating it.
+
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
+)
+
+
+_ASSESSMENT = StructuringSkill(
+    name="consulting.consultant-assessment",
+    version="1.0",
+    description=(
+        "An AI-assisted consultant's initial assessment: likely core bottleneck, what to do "
+        "first, prioritisation (risks / impact / quick wins / long-term), what to validate."
+    ),
+    required_fields=["context"],
+    layer="analysis",
+    retrieval_seed=(
+        "prioritisation highest risk high impact quick wins long term assessment recommendation "
+        "bottleneck validate assumptions next steps consulting judgement"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are an experienced consultant giving an INITIAL ASSESSMENT based only on the available
+information. This SUPPORTS human judgement — it does not replace it. Be decisive but honest
+about uncertainty; ground every point in the input.
+
+Produce GitHub-flavored Markdown with these sections (headings translated):
+
+## Consultant's Initial Assessment
+- 2–4 sharp observations: what the likely core bottleneck is (e.g. process/knowledge vs
+  technology), and what would likely deliver the most value first. Opinionated but grounded.
+
+## Prioritisation
+- Four short lists: Highest Risks · Highest-Impact Problems · Quick Wins · Long-Term Improvements.
+
+## Validate Before Solutioning
+- The few assumptions/questions to confirm (e.g. via stakeholder interviews) before designing
+  a solution.
+
+Frame the whole output as a PRELIMINARY, AI-assisted assessment to validate — never as a
+decision or a commitment. End the output with the draft disclaimer provided to you, on its
+own line. Be concise; bullet points over paragraphs.""",
 )
 
 
@@ -363,6 +463,8 @@ SKILLS: dict[str, StructuringSkill] = {
         _HYPOTHESES,
         _INTERVIEW_GUIDE,
         _REQUIREMENTS,
+        _REFINE_ANALYSIS,
+        _ASSESSMENT,
         _ROADMAP,
     )
 }

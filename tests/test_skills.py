@@ -18,6 +18,8 @@ EXPECTED_SKILLS = {
     "consulting.open-questions",
     "consulting.generate-hypotheses",
     "consulting.interview-guide",
+    "consulting.refine-analysis",
+    "consulting.consultant-assessment",
 }
 
 VALID_LAYERS = {"discovery", "analysis", "delivery"}

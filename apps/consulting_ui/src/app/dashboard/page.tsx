@@ -3,6 +3,7 @@ import {
   Briefcase,
   ClipboardList,
   FileText,
+  Gauge,
   HelpCircle,
   Lightbulb,
   ListChecks,
@@ -43,6 +44,7 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
     blurb: "Turn understanding into structured solution design.",
     tools: [
       { href: "/structure?tab=requirements", label: "Requirements Structurer", icon: ListChecks, color: "text-green-400", desc: "Classify requirements (BR/FR/NFR/constraint/…), INVEST user stories, quality flags." },
+      { href: "/discovery?skill=consulting.consultant-assessment", label: "Consultant Assessment", icon: Gauge, color: "text-pink-400", desc: "Initial assessment + prioritisation (risks, impact, quick wins) — preliminary, to validate." },
     ],
   },
   {
