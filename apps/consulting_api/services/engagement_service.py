@@ -97,6 +97,42 @@ class EngagementService:
         await self._eng.flush()
         return engagement
 
+    # Downstream tools that can be generated from an engagement's context.
+    DOWNSTREAM_TOOLS = ("roadmap", "stakeholders")
+
+    async def generate(self, engagement_id: UUID, tool: str) -> Engagement:
+        """Generate a downstream artifact (roadmap / stakeholders) from the engagement
+        context and attach it under `extras[tool]`."""
+        if tool not in self.DOWNSTREAM_TOOLS:
+            raise ValueError(
+                f"Unknown tool '{tool}'. Available: {', '.join(self.DOWNSTREAM_TOOLS)}."
+            )
+        engagement = await self._eng.get(Engagement, engagement_id)
+        if engagement is None:
+            raise ValueError(f"Engagement {engagement_id} not found.")
+
+        analysis = engagement.refined_analysis or engagement.initial_analysis or ""
+        if tool == "roadmap":
+            artifact = await self._run(
+                "consulting.structure-roadmap",
+                {
+                    "vision": engagement.initial_input,
+                    "goals": analysis,
+                    "known_scope": engagement.requirements or "",
+                },
+            )
+        else:  # stakeholders — single-field skill input mapped to both required fields
+            context = f"{engagement.initial_input}\n\n{analysis}"
+            artifact = await self._run(
+                "consulting.analyze-stakeholders",
+                {"project_description": context, "known_stakeholders": context},
+            )
+
+        # Reassign (not in-place mutate) so SQLAlchemy tracks the JSONB change.
+        engagement.extras = {**(engagement.extras or {}), tool: artifact}
+        await self._eng.flush()
+        return engagement
+
     async def get(self, engagement_id: UUID) -> Engagement | None:
         return await self._eng.get(Engagement, engagement_id)
 

@@ -60,6 +60,7 @@ export interface EngagementDetail {
   refined_analysis: string | null;
   requirements: string | null;
   assessment: string | null;
+  extras: Record<string, string>;
   created_at: string;
   updated_at: string;
 }
@@ -114,4 +115,6 @@ export const api = {
   getEngagement: (id: string) => getJSON<EngagementDetail>(`/engagements/${id}`),
   answerEngagement: (id: string, answers: string) =>
     post<EngagementDetail>(`/engagements/${id}/answer`, { answers }),
+  generateFromEngagement: (id: string, tool: string) =>
+    post<EngagementDetail>(`/engagements/${id}/generate`, { tool }),
 };

@@ -129,6 +129,7 @@ function DetailView({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +159,19 @@ function DetailView({ id }: { id: string }) {
       setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function generate(tool: string) {
+    if (generating) return;
+    setGenerating(tool);
+    setError(null);
+    try {
+      setEng(await api.generateFromEngagement(id, tool));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setGenerating(null);
     }
   }
 
@@ -219,6 +233,32 @@ function DetailView({ id }: { id: string }) {
           <Section title="Refined Analysis" body={eng.refined_analysis} />
           <Section title="Requirements" body={eng.requirements} />
           <Section title="Consultant's Assessment" body={eng.assessment} />
+
+          <div className="flex flex-col gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Continue with this engagement
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { tool: "roadmap", label: "Roadmap" },
+                { tool: "stakeholders", label: "Stakeholder Analysis" },
+              ].map(({ tool, label }) => (
+                <button
+                  key={tool}
+                  onClick={() => generate(tool)}
+                  disabled={generating !== null}
+                  className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition-colors hover:border-blue-600 hover:text-blue-400 disabled:opacity-40"
+                >
+                  {generating === tool && <Loader2 size={14} className="animate-spin" />}
+                  {eng.extras[tool] ? `Regenerate ${label}` : `Generate ${label}`}
+                </button>
+              ))}
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+          </div>
+
+          <Section title="Roadmap" body={eng.extras.roadmap ?? null} />
+          <Section title="Stakeholder Analysis" body={eng.extras.stakeholders ?? null} />
         </>
       )}
     </div>

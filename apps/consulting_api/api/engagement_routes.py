@@ -18,6 +18,7 @@ from apps.consulting_api.api.schemas import (
     EngagementDetail,
     EngagementListResponse,
     EngagementSummary,
+    GenerateRequest,
 )
 from apps.consulting_api.services.engagement_service import EngagementService
 from apps.consulting_api.storage.engagement_db import get_engagement_session
@@ -40,6 +41,7 @@ def _detail(e: Engagement) -> EngagementDetail:
         refined_analysis=e.refined_analysis,
         requirements=e.requirements,
         assessment=e.assessment,
+        extras=e.extras or {},
         created_at=e.created_at,
         updated_at=e.updated_at,
     )
@@ -101,3 +103,22 @@ async def answer_engagement(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/{engagement_id}/generate", response_model=EngagementDetail)
+async def generate_downstream(
+    engagement_id: UUID,
+    request: GenerateRequest,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+    rag_session: AsyncSession = Depends(get_session),
+) -> EngagementDetail:
+    """Generate a downstream artifact (roadmap / stakeholders) from the engagement context."""
+    service = EngagementService(eng_session, rag_session)
+    try:
+        return _detail(await service.generate(engagement_id, request.tool))
+    except CostLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    except ValueError as exc:
+        # Unknown tool → 422; missing engagement → 404
+        code = status.HTTP_404_NOT_FOUND if "not found" in str(exc) else status.HTTP_422_UNPROCESSABLE_ENTITY
+        raise HTTPException(status_code=code, detail=str(exc)) from exc

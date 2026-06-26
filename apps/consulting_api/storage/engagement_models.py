@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -37,6 +38,9 @@ class Engagement(Base):
     refined_analysis: Mapped[str | None] = mapped_column(Text)
     requirements: Mapped[str | None] = mapped_column(Text)
     assessment: Mapped[str | None] = mapped_column(Text)
+    # Downstream artifacts generated from this engagement's context, keyed by tool
+    # (e.g. {"roadmap": "...", "stakeholders": "..."}). Scales without new columns.
+    extras: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)

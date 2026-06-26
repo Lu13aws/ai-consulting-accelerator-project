@@ -36,7 +36,10 @@ a single-shot, grounded, cited, language-faithful Markdown draft.
 Open Questions → user answers → Refined Analysis + classified Requirements. Persisted via a
 **dedicated engine** (`CONSULTING_ENGAGEMENT_DB_URL`) that must point at an **isolated DB**
 in production (never the shared public db-v2). Routes: `/api/v1/consulting/engagements*`;
-UI: `/engagements`.
+UI: `/engagements`. **Context hand-off:** from a refined engagement you can generate
+downstream artifacts (Roadmap, Stakeholder Analysis) from its context; they attach to the
+engagement under a JSONB `extras` column (`POST /engagements/{id}/generate`) — the engagement
+becomes the single case file (Discovery → Analysis → Delivery).
 
 ## What This Product Is NOT
 

@@ -138,6 +138,7 @@ class EngagementDetail(BaseModel):
     refined_analysis: str | None = None
     requirements: str | None = None
     assessment: str | None = None
+    extras: dict[str, str] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -145,3 +146,7 @@ class EngagementDetail(BaseModel):
 class EngagementListResponse(BaseModel):
     count: int
     engagements: list[EngagementSummary]
+
+
+class GenerateRequest(BaseModel):
+    tool: str = Field(..., description="Downstream tool to generate: roadmap | stakeholders")
