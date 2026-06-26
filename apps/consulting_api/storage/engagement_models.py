@@ -41,6 +41,9 @@ class Engagement(Base):
     # Downstream artifacts generated from this engagement's context, keyed by tool
     # (e.g. {"roadmap": "...", "stakeholders": "..."}). Scales without new columns.
     extras: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Discovery rounds timeline (append-only): each turn is
+    # {"answers": str, "findings": str, "open_questions": str}.
+    turns: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)

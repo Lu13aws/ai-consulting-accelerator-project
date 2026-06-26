@@ -49,51 +49,87 @@ class EngagementService:
         )
         engagement = Engagement(
             title=_title(initial_input),
-            status="awaiting_answers",
+            status="in_discovery",
             language=_detect_language(initial_input),
             initial_input=initial_input,
             initial_analysis=analysis,
             hypotheses=hypotheses,
             open_questions=open_questions,
+            turns=[],
         )
         self._eng.add(engagement)
         await self._eng.flush()
         return engagement
 
+    @staticmethod
+    def _current_open_questions(engagement: Engagement) -> str:
+        """The questions awaiting an answer: the last round's, or the kickoff's."""
+        if engagement.turns:
+            return engagement.turns[-1].get("open_questions") or ""
+        return engagement.open_questions or ""
+
+    @staticmethod
+    def _all_answers(engagement: Engagement) -> str:
+        return "\n\n".join(t.get("answers", "") for t in (engagement.turns or []) if t.get("answers"))
+
     async def answer(self, engagement_id: UUID, answers: str) -> Engagement:
-        """Round 2: refine (delta), derive requirements, and add a consultant assessment."""
+        """One discovery round: refine (delta) and generate the NEXT, deeper questions."""
         engagement = await self._eng.get(Engagement, engagement_id)
         if engagement is None:
             raise ValueError(f"Engagement {engagement_id} not found.")
 
-        # Delta-aware refinement: show what the answers changed (not a re-run).
-        refined = await self._run(
+        prev_analysis = engagement.refined_analysis or engagement.initial_analysis or ""
+        current_questions = self._current_open_questions(engagement)
+
+        # Delta-aware refinement: show what THIS round's answers changed.
+        findings = await self._run(
             "consulting.refine-analysis",
             {
-                "initial_analysis": engagement.initial_analysis or "",
-                "open_questions": engagement.open_questions or "",
+                "initial_analysis": prev_analysis,
+                "open_questions": current_questions,
                 "answers": answers,
                 "initial_input": engagement.initial_input,
             },
         )
+        # Next, deeper questions — given the updated picture and what's already covered.
+        next_questions = await self._run(
+            "consulting.open-questions",
+            {
+                "context": (
+                    f"{engagement.initial_input}\n\nCurrent findings:\n{findings}\n\n"
+                    f"Already covered by previous answers:\n{self._all_answers(engagement)}\n{answers}"
+                )
+            },
+        )
 
-        enriched = (
-            f"{engagement.initial_input}\n\n"
-            f"Answers to the open questions:\n{answers}"
+        turn = {"answers": answers, "findings": findings, "open_questions": next_questions}
+        engagement.turns = [*(engagement.turns or []), turn]
+        engagement.refined_analysis = findings  # latest picture
+        engagement.status = "in_discovery"
+        await self._eng.flush()
+        return engagement
+
+    async def conclude(self, engagement_id: UUID) -> Engagement:
+        """Synthesize the engagement: classified requirements + consultant assessment."""
+        engagement = await self._eng.get(Engagement, engagement_id)
+        if engagement is None:
+            raise ValueError(f"Engagement {engagement_id} not found.")
+
+        analysis = engagement.refined_analysis or engagement.initial_analysis or ""
+        context = (
+            f"{engagement.initial_input}\n\nAnalysis:\n{analysis}\n\n"
+            f"Discovery answers:\n{self._all_answers(engagement)}"
         )
         requirements = await self._run(
-            "consulting.structure-requirements", {"requirements": enriched}
+            "consulting.structure-requirements", {"requirements": context}
         )
         assessment = await self._run(
-            "consulting.consultant-assessment",
-            {"context": f"{engagement.initial_input}\n\nRefined analysis:\n{refined}\n\nAnswers:\n{answers}"},
+            "consulting.consultant-assessment", {"context": context}
         )
 
-        engagement.answers = answers
-        engagement.refined_analysis = refined
         engagement.requirements = requirements
         engagement.assessment = assessment
-        engagement.status = "refined"
+        engagement.status = "concluded"
         await self._eng.flush()
         return engagement
 

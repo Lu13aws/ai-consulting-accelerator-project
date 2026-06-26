@@ -8,15 +8,19 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Markdown from "@/components/Markdown";
 import { api, type EngagementDetail, type EngagementSummary } from "@/lib/api";
 
+function isConcluded(status: string): boolean {
+  return status === "concluded" || status === "refined"; // "refined" = legacy
+}
+
 function StatusBadge({ status }: { status: string }) {
-  const refined = status === "refined";
+  const concluded = isConcluded(status);
   return (
     <span
       className={`rounded px-1.5 py-0.5 text-[10px] ${
-        refined ? "bg-green-950 text-green-300" : "bg-blue-950 text-blue-300"
+        concluded ? "bg-green-950 text-green-300" : "bg-blue-950 text-blue-300"
       }`}
     >
-      {refined ? "Refined" : "Awaiting answers"}
+      {concluded ? "Concluded" : "In discovery"}
     </span>
   );
 }
@@ -129,6 +133,7 @@ function DetailView({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [concluding, setConcluding] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
 
   useEffect(() => {
@@ -155,10 +160,24 @@ function DetailView({ id }: { id: string }) {
     setError(null);
     try {
       setEng(await api.answerEngagement(id, answers));
+      setAnswers("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function conclude() {
+    if (concluding) return;
+    setConcluding(true);
+    setError(null);
+    try {
+      setEng(await api.concludeEngagement(id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setConcluding(false);
     }
   }
 
@@ -182,9 +201,16 @@ function DetailView({ id }: { id: string }) {
       </div>
     );
   }
-  if (error || !eng) {
-    return <div className="px-8 py-10 text-sm text-red-400">{error ?? "Not found"}</div>;
+  if (error && !eng) {
+    return <div className="px-8 py-10 text-sm text-red-400">{error}</div>;
   }
+  if (!eng) return null;
+
+  const concluded = isConcluded(eng.status);
+  const busy = submitting || concluding || generating !== null;
+  const currentQuestions = eng.turns.length
+    ? eng.turns[eng.turns.length - 1].open_questions
+    : eng.open_questions;
 
   return (
     <div className="max-w-3xl mx-auto px-8 py-8 flex flex-col gap-6">
@@ -200,37 +226,65 @@ function DetailView({ id }: { id: string }) {
 
       <Section title="Initial Analysis" body={eng.initial_analysis} />
       <Section title="Hypotheses" body={eng.hypotheses} />
-      <Section title="Open Questions" body={eng.open_questions} />
 
-      {eng.status === "awaiting_answers" ? (
-        <form onSubmit={submitAnswers} className="flex flex-col gap-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Your answers
-          </h2>
-          <textarea
-            value={answers}
-            onChange={(e) => setAnswers(e.target.value)}
-            placeholder="Answer the open questions above…"
-            rows={5}
-            style={{ minHeight: 120 }}
-            className="w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-600 transition-colors"
-          />
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={submitting || !answers.trim()}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-lg text-sm font-medium text-white transition-colors"
-            >
-              {submitting && <Loader2 size={14} className="animate-spin" />}
-              {submitting ? "Refining…" : "Submit answers"}
-            </button>
-          </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-        </form>
-      ) : (
+      {/* Discovery rounds */}
+      {eng.turns.map((t, i) => (
+        <div key={i} className="flex flex-col gap-4 border-l-2 border-slate-800 pl-4">
+          <Section title={`Round ${i + 1} — Your answers`} body={t.answers ?? null} />
+          <Section title={`Round ${i + 1} — Updated findings`} body={t.findings ?? null} />
+        </div>
+      ))}
+
+      {/* Legacy engagements (pre-turns) kept their answers/refined in columns */}
+      {eng.turns.length === 0 && eng.refined_analysis && (
         <>
           <Section title="Answers" body={eng.answers} />
           <Section title="Refined Analysis" body={eng.refined_analysis} />
+        </>
+      )}
+
+      {!concluded && (
+        <>
+          <Section title="Open Questions" body={currentQuestions} />
+          <form onSubmit={submitAnswers} className="flex flex-col gap-3">
+            <textarea
+              value={answers}
+              onChange={(e) => setAnswers(e.target.value)}
+              placeholder="Answer the open questions above…"
+              rows={5}
+              style={{ minHeight: 120 }}
+              className="w-full resize-y rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-600 transition-colors"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={conclude}
+                disabled={busy}
+                className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2.5 text-sm text-slate-300 transition-colors hover:border-green-600 hover:text-green-400 disabled:opacity-40"
+              >
+                {concluding && <Loader2 size={14} className="animate-spin" />}
+                Conclude &amp; synthesize
+              </button>
+              <button
+                type="submit"
+                disabled={busy || !answers.trim()}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-lg text-sm font-medium text-white transition-colors"
+              >
+                {submitting && <Loader2 size={14} className="animate-spin" />}
+                {submitting ? "Refining…" : "Submit answers"}
+              </button>
+            </div>
+            <p className="text-xs text-slate-600">
+              Submit answers to dig deeper (another round), or conclude to synthesize
+              requirements &amp; a consultant assessment.
+            </p>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+          </form>
+        </>
+      )}
+
+      {concluded && (
+        <>
           <Section title="Requirements" body={eng.requirements} />
           <Section title="Consultant's Assessment" body={eng.assessment} />
 

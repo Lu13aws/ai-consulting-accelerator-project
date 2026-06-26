@@ -31,12 +31,17 @@ An AI-assisted consulting **workflow** (Discovery → Analysis → Delivery) tha
 **Layers are a product taxonomy over named skills, not separate systems.** Each skill is
 a single-shot, grounded, cited, language-faithful Markdown draft.
 
-**Engagements (Phase 2 — Interview/Discovery Mode, first iteration shipped):** a stateful,
-2-round flow over the existing skills — initial input → Initial Analysis + Hypotheses +
-Open Questions → user answers → Refined Analysis + classified Requirements. Persisted via a
-**dedicated engine** (`CONSULTING_ENGAGEMENT_DB_URL`) that must point at an **isolated DB**
-in production (never the shared public db-v2). Routes: `/api/v1/consulting/engagements*`;
-UI: `/engagements`. **Context hand-off:** from a refined engagement you can generate
+**Engagements (Phase 2 — Interview/Discovery Mode):** a stateful, **multi-round** discovery
+flow over the existing skills. Initial input → Initial Analysis + Hypotheses + Open Questions;
+then each **answer** round appends a turn (delta-aware Updated Findings + the next, deeper
+Open Questions) — repeat as long as useful (`status="in_discovery"`); a **conclude** step
+synthesizes classified Requirements + a Consultant's Assessment (`status="concluded"`). Rounds
+are stored append-only in a JSONB `turns` column. Persisted via a **dedicated engine**
+(`CONSULTING_ENGAGEMENT_DB_URL`) that must point at an **isolated DB** in production (never the
+shared public db-v2). Routes: `/api/v1/consulting/engagements*` (create / answer / conclude /
+generate). **Context hand-off:** from a concluded engagement, generate downstream artifacts
+(Roadmap, Stakeholder Analysis) from its context; they attach under a JSONB `extras` column
+— the engagement becomes the single case file (Discovery → Analysis → Delivery). UI: `/engagements`. **Context hand-off:** from a refined engagement you can generate
 downstream artifacts (Roadmap, Stakeholder Analysis) from its context; they attach to the
 engagement under a JSONB `extras` column (`POST /engagements/{id}/generate`) — the engagement
 becomes the single case file (Discovery → Analysis → Delivery).

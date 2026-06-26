@@ -125,6 +125,12 @@ class EngagementSummary(BaseModel):
     created_at: datetime
 
 
+class EngagementTurn(BaseModel):
+    answers: str | None = None
+    findings: str | None = None
+    open_questions: str | None = None
+
+
 class EngagementDetail(BaseModel):
     id: str
     title: str
@@ -139,6 +145,7 @@ class EngagementDetail(BaseModel):
     requirements: str | None = None
     assessment: str | None = None
     extras: dict[str, str] = Field(default_factory=dict)
+    turns: list[EngagementTurn] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

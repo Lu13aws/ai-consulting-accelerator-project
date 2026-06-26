@@ -144,3 +144,8 @@ def test_engagement_answer_rejects_bad_uuid(client):
 def test_engagement_generate_requires_tool(client):
     eid = "00000000-0000-0000-0000-000000000000"
     assert client.post(f"/api/v1/consulting/engagements/{eid}/generate", json={}).status_code == 422
+
+
+def test_engagement_conclude_route_wired(client):
+    # POST-only conclude route exists (bad UUID → 422 path validation, not 404).
+    assert client.post("/api/v1/consulting/engagements/not-a-uuid/conclude").status_code == 422

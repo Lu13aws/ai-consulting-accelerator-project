@@ -56,6 +56,12 @@ def _bootstrap_schema() -> None:
                     "ADD COLUMN IF NOT EXISTS extras JSONB NOT NULL DEFAULT '{}'::jsonb"
                 )
             )
+            conn.execute(
+                _sql_text(
+                    "ALTER TABLE consulting_engagements "
+                    "ADD COLUMN IF NOT EXISTS turns JSONB NOT NULL DEFAULT '[]'::jsonb"
+                )
+            )
         eng_engine.dispose()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Engagement schema bootstrap skipped: %s", exc)

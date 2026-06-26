@@ -61,6 +61,7 @@ export interface EngagementDetail {
   requirements: string | null;
   assessment: string | null;
   extras: Record<string, string>;
+  turns: { answers: string | null; findings: string | null; open_questions: string | null }[];
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +116,8 @@ export const api = {
   getEngagement: (id: string) => getJSON<EngagementDetail>(`/engagements/${id}`),
   answerEngagement: (id: string, answers: string) =>
     post<EngagementDetail>(`/engagements/${id}/answer`, { answers }),
+  concludeEngagement: (id: string) =>
+    post<EngagementDetail>(`/engagements/${id}/conclude`, {}),
   generateFromEngagement: (id: string, tool: string) =>
     post<EngagementDetail>(`/engagements/${id}/generate`, { tool }),
 };

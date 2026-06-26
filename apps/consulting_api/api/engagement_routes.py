@@ -42,6 +42,7 @@ def _detail(e: Engagement) -> EngagementDetail:
         requirements=e.requirements,
         assessment=e.assessment,
         extras=e.extras or {},
+        turns=e.turns or [],
         created_at=e.created_at,
         updated_at=e.updated_at,
     )
@@ -99,6 +100,22 @@ async def answer_engagement(
     service = EngagementService(eng_session, rag_session)
     try:
         return _detail(await service.answer(engagement_id, request.answers))
+    except CostLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/{engagement_id}/conclude", response_model=EngagementDetail)
+async def conclude_engagement(
+    engagement_id: UUID,
+    eng_session: AsyncSession = Depends(get_engagement_session),
+    rag_session: AsyncSession = Depends(get_session),
+) -> EngagementDetail:
+    """Synthesize the engagement into classified requirements + a consultant assessment."""
+    service = EngagementService(eng_session, rag_session)
+    try:
+        return _detail(await service.conclude(engagement_id))
     except CostLimitExceeded as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     except ValueError as exc:
