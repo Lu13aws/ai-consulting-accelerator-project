@@ -1,16 +1,19 @@
 """Deterministic unit tests for the eval check functions (no LLM, no DB)."""
 
 from apps.consulting_api.services.eval_checks import (
+    check_caveats,
     check_citations,
+    check_confidence,
     check_disclaimer,
     check_language,
     check_nonempty,
     check_sections,
+    check_structure,
     run_checks,
 )
 from apps.consulting_api.services.skills import DRAFT_DISCLAIMER
 
-_EN = "## Problem Statement\nThe team is slow and the process is not defined. " + "word " * 50
+_EN = "## Problem Statement\nThe team is slow and the process is not defined.\n## Goals\n" + "word " * 50
 _DE = "## Problemstellung\nDas Team ist langsam und der Prozess ist nicht definiert für uns. " + "wort " * 50
 
 
@@ -43,9 +46,29 @@ def test_citations():
     assert not check_citations("see [1]", 0).passed  # cites with zero grounding
 
 
+def test_structure():
+    assert check_structure("## A\nbody\n## B\nmore").passed  # 2 headings
+    assert check_structure("## Risks\n| a | b |\n| c | d |").passed  # 1 heading + table
+    assert check_structure("- one\n- two\n- three").passed  # a list
+    assert not check_structure("just a wall of prose with no headings at all").passed
+
+
+def test_caveats():
+    assert check_caveats("This is a preliminary hypothesis to validate.", ["to validate", "vorläufig"]).passed
+    assert check_caveats("Dies ist vorläufig.", ["to validate", "vorläufig"]).passed  # bilingual
+    assert not check_caveats("Here is the definitive root cause.", ["to validate"]).passed
+    assert check_caveats("anything", None).passed  # skipped when no phrases
+
+
+def test_confidence():
+    assert check_confidence("### H1\n**Confidence:** High\nevidence", required=True).passed
+    assert not check_confidence("### H1\nno confidence label here", required=True).passed
+    assert check_confidence("no label", required=False).passed  # skipped
+
+
 def test_run_checks_aggregates_all():
     results = run_checks(artifact=f"{_EN}\n\n{DRAFT_DISCLAIMER}", expected_lang="en", n_sources=0)
     assert {r.name for r in results} == {
-        "nonempty", "language_lock", "disclaimer", "sections", "citations",
+        "nonempty", "language_lock", "disclaimer", "structure", "sections", "caveats", "confidence",
     }
     assert all(r.passed for r in results)

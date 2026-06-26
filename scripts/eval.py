@@ -100,7 +100,125 @@ CASES: list[dict] = [
             "goals": "Reduce ramp time; standardize onboarding; capture tribal knowledge.",
         },
     },
+    # ── language balance (DE variants of the EN-only structured skills) ──
+    {
+        "id": "requirements-de",
+        "skill": "consulting.structure-requirements",
+        "lang": "de",
+        "inputs": {
+            "requirements": (
+                "Als Manager möchte ich ein Dashboard. Das System muss schnell sein. Das "
+                "Onboarding soll vier Wochen dauern. Nutzer müssen ihren Fortschritt verfolgen."
+            )
+        },
+    },
+    {
+        "id": "stakeholders-de",
+        "skill": "consulting.analyze-stakeholders",
+        "lang": "de",
+        "inputs": {
+            "project_description": "Einführung eines strukturierten Onboarding-Programms in einem Unternehmen mit 500 Mitarbeitenden.",
+            "known_stakeholders": "Personalabteilung, Teamleitungen, neue Mitarbeitende",
+        },
+    },
+    {
+        "id": "roadmap-de",
+        "skill": "consulting.structure-roadmap",
+        "lang": "de",
+        "inputs": {
+            "vision": "Jede neu eingestellte Person ist innerhalb von vier Wochen produktiv.",
+            "goals": "Einarbeitungszeit verkürzen; Onboarding standardisieren; implizites Wissen dokumentieren.",
+        },
+    },
+    # ── confidence ranking (EN — 'Confidence:' label is reliable in English) ──
+    {
+        "id": "hypotheses-en",
+        "skill": "consulting.generate-hypotheses",
+        "lang": "en",
+        "confidence": True,
+        "inputs": {
+            "context": (
+                "New hires take months to become productive; 70% of knowledge is "
+                "undocumented; there is no consistent process."
+            )
+        },
+    },
+    # ── consultant-assessment (most at risk of drifting into prescriptive advice) ──
+    {
+        "id": "assessment-en",
+        "skill": "consulting.consultant-assessment",
+        "lang": "en",
+        "inputs": {
+            "context": (
+                "New hires take months to ramp up. ~50 hires/year. 70% of knowledge "
+                "undocumented. No LMS, informal mentoring. Managers want a dashboard."
+            )
+        },
+        "sections": ["## Prioritisation", "## Validate Before Solutioning"],
+    },
+    {
+        "id": "assessment-de",
+        "skill": "consulting.consultant-assessment",
+        "lang": "de",
+        "inputs": {
+            "context": (
+                "Neue Mitarbeitende brauchen Monate. ~50 Einstellungen/Jahr. 70% des Wissens "
+                "undokumentiert. Kein LMS, informelles Mentoring. Führungskräfte wünschen ein Dashboard."
+            )
+        },
+    },
+    # ── remaining discovery skills (coverage) ──
+    {
+        "id": "risks-en",
+        "skill": "consulting.identify-risks",
+        "lang": "en",
+        "inputs": {
+            "context": (
+                "A 500-person company is rolling out a new structured onboarding program "
+                "over 6 months with a small HR team and no LMS."
+            )
+        },
+    },
+    {
+        "id": "assumptions-en",
+        "skill": "consulting.detect-assumptions",
+        "lang": "en",
+        "inputs": {
+            "context": (
+                "We will cut onboarding time to 4 weeks by introducing a mentoring program "
+                "and a knowledge base."
+            )
+        },
+    },
+    {
+        "id": "interview-guide-en",
+        "skill": "consulting.interview-guide",
+        "lang": "en",
+        "inputs": {
+            "context": "Discovery interviews with team leads about why new hires take so long to become productive."
+        },
+    },
 ]
+
+# Preliminary-framing markers per skill (bilingual). A passing output hedges with at
+# least one — guards the "AI assists, does not decide" discipline (see check_caveats).
+SKILL_CAVEATS: dict[str, list[str]] = {
+    "consulting.structure-business-problem": [
+        "to validate", "to be validated", "hypothesis", "preliminary",
+        "zu validieren", "zu bestätigen", "hypothese", "vorläufig", "annahme",
+    ],
+    "consulting.consultant-assessment": [
+        "preliminary", "to validate", "validate", "not a decision",
+        "vorläufig", "validieren", "zu validieren", "keine entscheidung",
+    ],
+    "consulting.structure-requirements": [
+        "to validate", "suggested", "to be validated",
+        "zu validieren", "vorgeschlagen", "vorschlag",
+    ],
+    "consulting.detect-assumptions": [
+        "assumption", "validate", "annahme", "validieren", "überprüfen", "zu prüfen",
+    ],
+}
 
 _GREEN, _RED, _DIM, _RESET = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
 
@@ -116,6 +234,8 @@ async def _run_case(case: dict) -> tuple[list, int, int]:
         expected_lang=case["lang"],
         n_sources=len(resp.sources),
         sections=case.get("sections"),
+        caveats=SKILL_CAVEATS.get(case["skill"]),
+        needs_confidence=case.get("confidence", False),
     )
     return results, len(resp.sources), resp.input_tokens + resp.output_tokens
 
