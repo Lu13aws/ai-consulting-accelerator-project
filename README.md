@@ -4,7 +4,9 @@ AI-assisted consulting workflow built on a retrieval-augmented knowledge base of
 industry frameworks. The system ingests BA/RE/PM standards (IREB, BABOK, BPMN, PMBOK,
 Scrum, roadmapping) into a pgvector store, answers framework questions with citations,
 and turns unstructured customer input into structured, framework-grounded consulting
-drafts across a Discovery → Analysis → Delivery workflow.
+drafts across a Discovery → Analysis → Delivery workflow. It also recognises resembling
+project archetypes and connects an engagement to prior internal knowledge (skills, radar
+reports) as cited references to validate — an Organizational Memory, not an autonomous advisor.
 
 > Every output is an **AI-generated draft for human review**, grounded in cited
 > frameworks. See [CLAUDE.md](CLAUDE.md) for scope, principles and roadmap, and
@@ -26,9 +28,10 @@ ai-consulting-accelerator-project/
 │   │   │   ├── engagement_routes.py# /api/v1/consulting/engagements* (create/answer/conclude/generate/report/lifecycle)
 │   │   │   └── schemas.py          # Pydantic request/response models
 │   │   ├── services/
-│   │   │   ├── consulting_service.py  # query() + structure_artifact() (RAG, language lock)
+│   │   │   ├── consulting_service.py  # query(), structure_artifact(), retrieve_knowledge(), derive_search_keywords()
 │   │   │   ├── skills.py           # named/versioned structuring skill registry (by layer)
-│   │   │   ├── engagement_service.py  # stateful multi-round discovery (turns, conclude, hand-off)
+│   │   │   ├── patterns.py         # curated project-archetype catalog loader (Pattern Library)
+│   │   │   ├── engagement_service.py  # multi-round discovery + hand-off + Organizational Memory step
 │   │   │   ├── report_render.py    # engagement report → Markdown / Word (python-docx) / PDF (fpdf2)
 │   │   │   └── eval_checks.py      # pure rule-based quality checks + judge-reply parsing
 │   │   └── storage/
@@ -38,11 +41,13 @@ ai-consulting-accelerator-project/
 │       └── src/{app,components,lib}   # incl. app/engagements (guided Discovery→Analysis→Delivery)
 ├── scripts/
 │   ├── ingest_frameworks.py        # bulk .pdf/.html ingestion (dedup, language/category metadata)
+│   ├── ingest_skills.py            # toolkit SKILL.md → store under app_name="skills" (Organizational Memory)
+│   ├── ingest_reports_local.py     # S3 radar/competitor/regulatory reports → local store (app_name per type)
 │   ├── eval.py                     # quality eval harness (golden cases + rule checks + opt-in LLM judge)
 │   ├── deploy.py                   # Lambda container + API Gateway HTTP API (VPC, JWT)
 │   ├── deploy_frontend.py          # build + ship UI to S3 + CloudFront
 │   └── setup_consulting_cognito.py # (optional) Cognito demo pool
-├── data/                           # framework PDFs, grouped by category
+├── data/                           # framework PDFs (by category) + patterns/ (curated project archetypes)
 ├── tests/                          # pytest: skills, ingestion helpers, API
 ├── infra/                          # vpc_config.json (gitignored; copied from the platform repo)
 ├── CLAUDE.md  DEPLOY.md  README.md
@@ -63,8 +68,10 @@ ai-consulting-accelerator-project/
 | Reused platform code | `aiplatform`: loaders, chunker, embedder, vector store, LLM providers, ORM models, settings |
 | Deployment (scripts ready, not yet run) | Lambda container + API Gateway HTTP API (in VPC); S3 + CloudFront for the UI |
 
-Documents from all apps share one schema (`documents` / `chunks` / `embeddings`); this
-product scopes everything with `app_name="consulting"`.
+Documents from all apps share one schema (`documents` / `chunks` / `embeddings`), scoped by
+`app_name`. Framework Q&A uses `app_name="consulting"`; the **Organizational Memory** (below)
+reuses the same store under additional, independently-ingested `app_name`s (`skills`, `radar`,
+`competitor`, `regulatory`) — a cross-source index without any new infrastructure.
 
 ---
 
@@ -121,6 +128,20 @@ Persisted via a DEDICATED engine (CONSULTING_ENGAGEMENT_DB_URL) — an isolated 
 never the shared public db-v2 (confidential client data).
 ```
 
+**Organizational Memory (cross-source references — "connect existing knowledge, never invent"):**
+
+```
+Sources → ingested into the shared store, one app_name each (internal, non-confidential only):
+  scripts/ingest_skills.py          toolkit SKILL.md            → app_name="skills"
+  scripts/ingest_reports_local.py   S3 weekly reports (read-only) → "radar" / "competitor" / "regulatory"
+
+Engagement "knowledge" step (consulting.relevant-knowledge):
+  business context
+  → derive_search_keywords()             distil business → technical keyword bag (bridge the vocabulary gap)
+  → retrieve_knowledge([skills, radar, competitor, regulatory], threshold 0.25)   per-source caps (4/1/1/1)
+  → cited references to VALIDATE (skill:// , radar:// …) — never recommendations, "none found" if nothing fits
+```
+
 ---
 
 ## Capabilities
@@ -128,7 +149,7 @@ never the shared public db-v2 (confidential client data).
 The product is organised as a **Discovery → Analysis → Delivery** workflow. Each
 capability is a named, versioned **skill** (single-shot, grounded, cited, language-faithful).
 
-**11 skills** across three layers, invoked by name (not similarity):
+**13 skills** across three layers, invoked by name (not similarity):
 
 | Layer | Tool | Endpoint |
 |---|---|---|
@@ -138,13 +159,16 @@ capability is a named, versioned **skill** (single-shot, grounded, cited, langua
 | Discovery | Risks · Assumptions · Open Questions · Hypotheses · Interview Guide | `POST /api/v1/consulting/run` (`{skill, inputs}`) |
 | Analysis | Requirements (classification + INVEST stories + quality flags) | `POST /api/v1/consulting/structure/requirements` |
 | Analysis | Refine analysis (delta) · Consultant assessment (preliminary) | via engagements / `run` |
+| Analysis | **Match patterns** (resembling project archetypes, to validate) · **Relevant knowledge** (cross-source references) | via engagements `generate` |
 | Delivery | Roadmap + agile backlog | `POST /api/v1/consulting/structure/roadmap` |
 | — | List skills (with layer) | `GET /api/v1/consulting/skills` |
 
 **Engagements** tie the layers into one stateful case file: multi-round discovery →
-conclude (synthesis) → generate downstream artifacts → export (`md`/`docx`/`pdf`) →
-lifecycle (rename/archive/delete). See the Engagements data-flow block above;
-endpoints under `POST/GET/PATCH/DELETE /api/v1/consulting/engagements*`.
+conclude (synthesis) → generate downstream artifacts (Roadmap · Stakeholder Analysis ·
+**Pattern Fit** · **Relevant Knowledge**) → export (`md`/`docx`/`pdf`) →
+lifecycle (rename/archive/delete). See the Engagements + Organizational-Memory data-flow
+blocks above; endpoints under `POST/GET/PATCH/DELETE /api/v1/consulting/engagements*`
+(`generate` `tool` = roadmap | stakeholders | patterns | knowledge).
 
 UI routes: `/dashboard` (tools grouped by layer), `/chat`, `/discovery`, `/structure`
 (Business Problem / Requirements / Roadmap tabs), `/stakeholders`, `/engagements`.
@@ -248,6 +272,43 @@ lenient — it scored a draft groundedness 5 where gpt-4o scored it 2.)
 
 ---
 
+## Organizational Memory & Pattern Library
+
+Two features that surface *prior, internal* knowledge during an engagement — both grounded,
+cited, framed as **references/hypotheses to validate**, never recommendations.
+
+**Pattern Library** (`data/patterns/*.md`, skill `consulting.match-patterns`): a small, curated
+set of project archetypes (Corporate Knowledge Hub, Enterprise Search, AI Document Processing) —
+each with typical goals/stakeholders/risks/assumptions/**pitfalls**. On a concluded engagement it
+names 0–2 *resembling* archetypes (with confidence) and lists commonly-observed items to validate.
+Deliberately discovery-scoped (no architecture/tech) so it stays on the "assists, not prescribes"
+side; surfaced late (after understanding) to avoid anchoring.
+
+**Organizational Memory** (cross-source retrieval, skill `consulting.relevant-knowledge`): indexes
+other internal sources into the same pgvector store under their own `app_name`, then retrieves the
+relevant ones during an engagement as cited references:
+
+- `scripts/ingest_skills.py` → toolkit `SKILL.md` under `app_name="skills"` (`skill://…`)
+- `scripts/ingest_reports_local.py` → weekly reports read **read-only from S3**, ingested **locally**
+  under `app_name` = `radar` / `competitor` / `regulatory` (`radar://…`) — never the prod RDS
+
+**Closing the business↔technical vocabulary gap** (the key finding) uses two complementary, simple
+signals — *no clever retrieval pipeline*:
+1. **Capability metadata** — an optional one-line, business-language `description:` in a `SKILL.md`
+   YAML frontmatter, embedded as its OWN chunk so a business query matches a technically-worded skill.
+2. **Query-side keyword expansion** — `derive_search_keywords()` distils the long, diffuse business
+   context into a focused technical keyword bag.
+
+`retrieve_knowledge()` queries the sources **per-source with caps** (≈ skills 4, radar/competitor/
+regulatory 1 each) so dense weekly reports don't crowd out the how-to skills; the 0.25 similarity
+threshold gates irrelevant sources out (honest "no relevant prior knowledge found", no fabrication).
+
+> **Confidentiality:** only internal, non-confidential knowledge enters the shared store. Client
+> engagement data stays in the isolated engagement DB and is never mixed in. Adding a source later
+> = one more `(app_name, cap)` entry; a knowledge graph is deferred until traversal queries demand it.
+
+---
+
 ## Data Source
 
 Industry frameworks stored as PDFs under `data/`, grouped by category:
@@ -345,6 +406,14 @@ own Lambda build).
   conclude), context hand-off to Roadmap/Stakeholders, one-file report export (md/docx/pdf),
   lifecycle (rename/archive/delete), persisted via a dedicated engine.
 - ✅ **Quality eval harness** — golden cases + rule checks + opt-in LLM-as-judge.
+- ✅ **Pattern Library + Organizational Memory** — resembling-archetype matching, and cross-source
+  references from skills + radar/competitor/regulatory (local; capability metadata + keyword bridge).
+
+### Organizational Memory — next
+- **Freshness/automation** of the report ingest (currently a manual `ingest_reports_local.py` run)
+- A real **multi-`app_name` filter** in `VectorStore.search` (one query instead of N per source)
+- **ADRs / project docs** as a further source (scattered across repos — needs a format/location decision)
+- Capability `description` on more skills; a knowledge graph only if traversal queries demand it
 
 ### Delivery layer (Phase 3, high-caution)
 - Architecture recommendation (grounded in AWS Well-Architected), effort/cost estimation and
@@ -412,6 +481,32 @@ Nine skills across three layers; 38 tests green; cross-lingual output drift fixe
 11 skills; the full Discovery → Analysis → Delivery workflow as a single engagement case file;
 66 tests green; quality measurable on demand.
 
+### 20260627
+
+**Pattern Library + Organizational Memory**
+
+**Observation**
+Two senior-consultant behaviours were missing: recognising that a problem *resembles* prior project
+types, and *connecting* it to existing internal knowledge — without inventing claims (no "experience
+layer") and without anchoring early or prescribing solutions.
+
+**Solution**
+- **Pattern Library:** curated archetypes (`data/patterns/`) + `consulting.match-patterns` — 0–2
+  resembling patterns to validate, discovery-scoped, surfaced late.
+- **Organizational Memory:** `consulting.relevant-knowledge` + `retrieve_knowledge()` over additional
+  `app_name`s. `ingest_skills.py` indexes all 66 toolkit skills; `ingest_reports_local.py` reads radar/
+  competitor/regulatory reports read-only from S3 into the local store. Multi-`app_name` retrieval with
+  per-source caps.
+- **Vocabulary bridge (key finding):** business problems and technical skills embed in different
+  regions, so retrieval gave false negatives. Fixed *deterministically* with capability metadata
+  (one-line business `description:` frontmatter embedded as its own chunk) **plus** query-side
+  `derive_search_keywords()` — complementary, no clever pipeline.
+
+**Result**
+13 skills; engagements now surface resembling patterns + cited references from skills and the three
+radar sources (relevance-gated, "none found" when nothing fits); 70 tests green. All local —
+deploy/freshness deferred.
+
 ---
 
 ## Scripts
@@ -419,6 +514,8 @@ Nine skills across three layers; 38 tests green; cross-lingual output drift fixe
 | Script | Purpose | Usage |
 |---|---|---|
 | `scripts/ingest_frameworks.py` | Ingest `data/` PDFs/HTML into pgvector (dedup, metadata) | `uv run python scripts/ingest_frameworks.py --folder data/` |
+| `scripts/ingest_skills.py` | Ingest toolkit `SKILL.md` (parses `description` frontmatter) → `app_name="skills"` | `uv run python scripts/ingest_skills.py` |
+| `scripts/ingest_reports_local.py` | Read radar/competitor/regulatory reports from S3 (read-only) → local store, `app_name` per type | `uv run python scripts/ingest_reports_local.py [--type radar] [--latest]` |
 | `scripts/eval.py` | Quality eval: golden cases → rule checks (+ opt-in LLM judge). Calls the real LLM (~cents) | `uv run python scripts/eval.py [--judge --judge-model gpt-4o]` |
 | `scripts/deploy.py` | Build/push Lambda image; provision Lambda + API Gateway (VPC, JWT). `--build-only` validates the image with no AWS | `uv run python scripts/deploy.py` |
 | `scripts/deploy_frontend.py` | Build the static UI and ship to S3 + CloudFront | `uv run python scripts/deploy_frontend.py` |
