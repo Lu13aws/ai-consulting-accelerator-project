@@ -21,6 +21,7 @@ EXPECTED_SKILLS = {
     "consulting.refine-analysis",
     "consulting.consultant-assessment",
     "consulting.match-patterns",
+    "consulting.relevant-knowledge",
 }
 
 VALID_LAYERS = {"discovery", "analysis", "delivery"}

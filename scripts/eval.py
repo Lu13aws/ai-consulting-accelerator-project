@@ -220,6 +220,21 @@ CASES: list[dict] = [
             "patterns": load_pattern_catalog(),
         },
     },
+    # ── relevant-knowledge: formats RETRIEVED items as references (synthetic hits in-prompt) ──
+    {
+        "id": "relevant-knowledge-en",
+        "skill": "consulting.relevant-knowledge",
+        "lang": "en",
+        "top_k": 0,
+        "inputs": {
+            "context": "A company wants a searchable hub over scattered internal documents and wikis.",
+            "knowledge": (
+                "[1] skill://ai/ai_rag_pipeline\nEnd-to-end RAG: ingest, embed, retrieve, grounded answer.\n\n"
+                "[2] skill://databases/pgvector_semantic_search\npgvector HNSW cosine similarity search.\n\n"
+                "[3] skill://aws/aws_lambda_container\nDeploy FastAPI to Lambda via container image."
+            ),
+        },
+    },
 ]
 
 # Preliminary-framing markers per skill (bilingual). A passing output hedges with at
@@ -244,6 +259,11 @@ SKILL_CAVEATS: dict[str, list[str]] = {
     "consulting.match-patterns": [
         "validate", "commonly", "resembl", "no strong", "to validate",
         "validieren", "ähnel", "häufig", "kein eindeutig",
+    ],
+    # Relevant knowledge must be framed as references to validate, never recommendations.
+    "consulting.relevant-knowledge": [
+        "validate", "reference", "relevant", "might", "no relevant",
+        "validieren", "referenz", "könnte",
     ],
 }
 

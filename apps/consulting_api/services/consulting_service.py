@@ -144,6 +144,38 @@ class ConsultingService:
             output_tokens=llm_response.output_tokens,
         )
 
+    async def retrieve_knowledge(
+        self,
+        query: str,
+        app_name: str,
+        top_k: int = 5,
+        similarity_threshold: float | None = 0.3,
+    ) -> list[SourceReference]:
+        """Retrieve existing knowledge from ANOTHER app's index (e.g. app_name="skills")
+        for the cross-source "Organizational Memory" — returns cited references, nothing
+        generated. Empty list means nothing relevant was found (no fabrication)."""
+        provider = get_llm_provider()
+        embedder = Embedder(provider)
+        query_embedding = await embedder.embed_query(query)
+        store = VectorStore(self._session)
+        results = await store.search(
+            query_embedding.vector,
+            top_k=top_k,
+            app_name=app_name,
+            similarity_threshold=similarity_threshold,
+        )
+        return [
+            SourceReference(
+                chunk_id=str(r.chunk_id),
+                source_uri=r.source_uri,
+                score=round(r.score, 4),
+                excerpt=r.content[:300].strip(),
+                category=r.metadata.get("category"),
+                language=r.metadata.get("language"),
+            )
+            for r in results
+        ]
+
     async def list_sources(self) -> SourcesResponse:
         """List the framework documents currently indexed for consulting."""
         stmt = (

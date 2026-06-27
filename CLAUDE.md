@@ -41,14 +41,25 @@ are stored append-only in a JSONB `turns` column. Persisted via a **dedicated en
 shared public db-v2). Routes: `/api/v1/consulting/engagements*` (create / answer / conclude /
 generate / report; plus `PATCH`/`DELETE` for **lifecycle** — rename, archive, delete; archived
 engagements are hidden from the list unless `?include_archived=true`). **Context hand-off:** from
-a concluded engagement, generate downstream artifacts (Roadmap, Stakeholder Analysis, plus a
+a concluded engagement, generate downstream artifacts (Roadmap, Stakeholder Analysis, a
 **Pattern Fit** check against the curated `data/patterns/` catalog — 0–2 resembling archetypes to
-validate, never a solution) from its context; they attach under a JSONB `extras` column
-(`POST /engagements/{id}/generate` with `tool` = roadmap|stakeholders|patterns) — the
+validate, never a solution — and **Relevant Knowledge**: cross-source retrieval of existing internal
+knowledge, see Organizational Memory below) from its context; they attach under a JSONB `extras`
+column (`POST /engagements/{id}/generate` with `tool` = roadmap|stakeholders|patterns|knowledge) — the
 engagement becomes the single case file (Discovery → Analysis → Delivery). **Report export:**
 `GET /engagements/{id}/report?format=md|docx|pdf` composes every artifact (situation, analysis,
 all rounds, requirements, assessment, downstream) into one downloadable file — Markdown, Word
 (python-docx) or PDF (fpdf2), both pure-Python/Lambda-safe. UI: `/engagements`.
+
+**Organizational Memory (pilot):** the platform's vector store is `app_name`-scoped, so it doubles
+as a cross-source knowledge index. `scripts/ingest_skills.py` ingests the personal-toolkit Skills
+into the shared store under `app_name="skills"` (`skill://<category>/<name>`). The engagement's
+`knowledge` step (`consulting.relevant-knowledge` + `ConsultingService.retrieve_knowledge`) then
+retrieves relevant *existing* skills and presents them as **cited references to validate** — it
+connects existing knowledge, never invents it (the grounded alternative to an "experience layer").
+Internal, non-confidential knowledge only — client engagement data stays in the isolated engagement
+DB and is never mixed into the shared store. Adding more sources later = more `app_name`s (ADRs,
+radar); a knowledge graph is deferred until relationship/traversal queries actually demand it.
 
 ## What This Product Is NOT
 
@@ -307,6 +318,7 @@ a taxonomy for the UI/workflow, not separate systems.
 | `consulting.refine-analysis` | v1.0 | analysis | Delta-aware refinement (Updated Findings) from answers — used by engagement round 2 |
 | `consulting.consultant-assessment` | v1.0 | analysis | AI-assisted assessment + prioritisation (risks/impact/quick wins) — preliminary, to validate |
 | `consulting.match-patterns` | v1.0 | analysis | Matches the engagement against a curated project-archetype catalog (`data/patterns/`); surfaces 0–2 resembling patterns with confidence as commonly-observed items **to validate** — never a label, never a solution |
+| `consulting.relevant-knowledge` | v1.0 | analysis | Formats already-retrieved internal knowledge (prior skills, `app_name="skills"`) as **cited references that may be relevant** — connects existing knowledge, never invents it; references, not recommendations |
 | `consulting.structure-roadmap` | v1.0 | delivery | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
 
 **Input contract:** structured user context (defined required fields per skill)

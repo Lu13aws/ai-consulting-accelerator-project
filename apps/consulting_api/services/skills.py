@@ -441,6 +441,47 @@ End the output with the draft disclaimer provided to you, on its own line. Be co
 )
 
 
+_RELEVANT_KNOWLEDGE = StructuringSkill(
+    name="consulting.relevant-knowledge",
+    version="1.0",
+    description=(
+        "Formats already-retrieved internal knowledge items (e.g. prior skills) as cited "
+        "references that MAY be relevant to the engagement — connects existing knowledge, "
+        "never invents it; references, not recommendations."
+    ),
+    required_fields=["knowledge"],
+    optional_fields=["context"],
+    layer="analysis",
+    # Grounding is the retrieved items passed in (the engagement calls this with top_k=0);
+    # the seed only matters if invoked via the generic /run route.
+    retrieval_seed=(
+        "relevant existing internal knowledge prior skills architecture decisions references "
+        "organizational memory cross reference"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are given (1) the engagement context and (2) a list of RETRIEVED internal knowledge items
+("## knowledge"), each with a numbered source identifier. Your job is ONLY to connect — present
+the retrieved items as references the consultant MIGHT find relevant. You do NOT invent knowledge
+and you do NOT recommend a solution.
+
+Strict rules:
+- Use ONLY the items in the provided list. NEVER add an item that is not in the list. If the list
+  is empty, output a single line stating no relevant prior knowledge was found, then stop.
+- For each item, keep its source identifier (e.g. `skill://…`) and add a short, hedged note on
+  WHY it might be relevant — framed as "reference, validate whether useful", never "use this".
+- These are pointers to existing internal work, NOT recommendations, NOT a design, NOT a claim
+  that they fit. The consultant decides.
+
+Produce GitHub-flavored Markdown (heading translated):
+## Relevant Existing Knowledge (references — validate)
+- `<source>` — why it might be relevant (validate whether it applies).
+
+End the output with the draft disclaimer provided to you, on its own line. Be concise.""",
+)
+
+
 # ── Delivery layer ────────────────────────────────────────────────────────────
 
 _ROADMAP = StructuringSkill(
@@ -514,6 +555,7 @@ SKILLS: dict[str, StructuringSkill] = {
         _REFINE_ANALYSIS,
         _ASSESSMENT,
         _MATCH_PATTERNS,
+        _RELEVANT_KNOWLEDGE,
         _ROADMAP,
     )
 }

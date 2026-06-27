@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.consulting_api.api.schemas import StructureRequest
 from apps.consulting_api.services.consulting_service import ConsultingService, _detect_language
 from apps.consulting_api.services.patterns import load_pattern_catalog
+from apps.consulting_api.services.skills import DRAFT_DISCLAIMER
 from apps.consulting_api.storage.engagement_models import Engagement
 
 
@@ -57,6 +58,7 @@ def build_report(engagement: Engagement) -> str:
 
     extras = engagement.extras or {}
     section("Pattern Fit (to validate)", extras.get("patterns"))
+    section("Relevant Existing Knowledge (references)", extras.get("knowledge"))
     section("Roadmap", extras.get("roadmap"))
     section("Stakeholder Analysis", extras.get("stakeholders"))
 
@@ -172,7 +174,7 @@ class EngagementService:
         return engagement
 
     # Tools that can be generated from a (concluded) engagement's context.
-    DOWNSTREAM_TOOLS = ("roadmap", "stakeholders", "patterns")
+    DOWNSTREAM_TOOLS = ("roadmap", "stakeholders", "patterns", "knowledge")
 
     async def generate(self, engagement_id: UUID, tool: str) -> Engagement:
         """Generate a downstream artifact (roadmap / stakeholders) from the engagement
@@ -204,6 +206,29 @@ class EngagementService:
                 {"context": context, "patterns": load_pattern_catalog()},
                 top_k=0,
             )
+        elif tool == "knowledge":
+            # Organizational Memory: retrieve relevant EXISTING internal knowledge (skills)
+            # and present it as cited references — never invented. Empty → say so (no LLM).
+            query = f"{engagement.initial_input}\n\n{analysis}"
+            hits = await self._consulting.retrieve_knowledge(query, app_name="skills", top_k=5)
+            if not hits:
+                note = (
+                    "Keine relevante interne Vorwissensbasis gefunden."
+                    if engagement.language == "de"
+                    else "No relevant prior internal knowledge found."
+                )
+                artifact = (
+                    f"## Relevant Existing Knowledge (references — validate)\n\n{note}\n\n{DRAFT_DISCLAIMER}"
+                )
+            else:
+                block = "\n\n".join(
+                    f"[{i}] {h.source_uri}\n{h.excerpt}" for i, h in enumerate(hits, 1)
+                )
+                artifact = await self._run(
+                    "consulting.relevant-knowledge",
+                    {"context": query, "knowledge": block},
+                    top_k=0,
+                )
         else:  # stakeholders — single-field skill input mapped to both required fields
             context = f"{engagement.initial_input}\n\n{analysis}"
             artifact = await self._run(
