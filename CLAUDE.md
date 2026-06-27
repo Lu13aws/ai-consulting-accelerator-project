@@ -55,8 +55,12 @@ all rounds, requirements, assessment, downstream) into one downloadable file —
 as a cross-source knowledge index. `scripts/ingest_skills.py` ingests the personal-toolkit Skills
 into the shared store under `app_name="skills"` (`skill://<category>/<name>`). The engagement's
 `knowledge` step (`consulting.relevant-knowledge` + `ConsultingService.retrieve_knowledge`) then
-retrieves relevant *existing* skills and presents them as **cited references to validate** — it
-connects existing knowledge, never invents it (the grounded alternative to an "experience layer").
+first expands the business context into a **technical keyword bag**
+(`ConsultingService.derive_search_keywords` — business problems and technical skills live in
+different vocabularies, so a raw business query under-retrieves), then retrieves relevant *existing*
+skills (threshold 0.25) and presents them as **cited references to validate** — it connects existing
+knowledge, never invents it (the grounded alternative to an "experience layer"). No technical
+solution implied → empty keywords → honest "none found".
 Internal, non-confidential knowledge only — client engagement data stays in the isolated engagement
 DB and is never mixed into the shared store. Adding more sources later = more `app_name`s (ADRs,
 radar); a knowledge graph is deferred until relationship/traversal queries actually demand it.

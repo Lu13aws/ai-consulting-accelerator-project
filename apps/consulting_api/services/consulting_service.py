@@ -144,6 +144,33 @@ class ConsultingService:
             output_tokens=llm_response.output_tokens,
         )
 
+    _KEYWORD_SYSTEM_PROMPT = """\
+You extract SEARCH KEYWORDS for an internal engineering knowledge base.
+
+Given a business problem and its analysis, output a SHORT, space-separated list of the TECHNICAL
+solution keywords implied by it — technologies, architecture patterns and capabilities a senior
+engineer would expect (e.g. RAG, retrieval augmented generation, vector search, embeddings,
+semantic search, serverless, AWS Lambda, API, authentication, data pipeline, ETL, dashboard,
+knowledge base). This bridges business language to the technical vocabulary the knowledge base
+is written in.
+
+Output ONLY the keywords on a single line — no prose, no bullets, no punctuation other than
+spaces. If the problem implies no technical/software solution at all, output nothing."""
+
+    async def derive_search_keywords(self, text: str) -> str:
+        """Expand business-language context into a compact technical keyword bag for cross-source
+        retrieval — closes the vocabulary gap between business problems and technical knowledge.
+        Returns "" when no technical solution is implied (so retrieval honestly finds nothing)."""
+        provider = get_llm_provider()
+        response = await provider.complete(
+            [Message(role="user", content=text)],
+            system_prompt=self._KEYWORD_SYSTEM_PROMPT,
+            temperature=0,
+            max_tokens=80,
+        )
+        # One line, keywords only — guard against the model adding stray prose/punctuation.
+        return " ".join(response.content.replace("\n", " ").split())[:400]
+
     async def retrieve_knowledge(
         self,
         query: str,

@@ -209,8 +209,14 @@ class EngagementService:
         elif tool == "knowledge":
             # Organizational Memory: retrieve relevant EXISTING internal knowledge (skills)
             # and present it as cited references — never invented. Empty → say so (no LLM).
-            query = f"{engagement.initial_input}\n\n{analysis}"
-            hits = await self._consulting.retrieve_knowledge(query, app_name="skills", top_k=5)
+            # Business problems and technical skills live in different vocabularies, so first
+            # expand the context into a technical keyword bag (closes that gap); fall back to
+            # the raw context if no technical solution is implied.
+            context = f"{engagement.initial_input}\n\n{analysis}\n\n{engagement.requirements or ''}"
+            keywords = await self._consulting.derive_search_keywords(context)
+            hits = await self._consulting.retrieve_knowledge(
+                keywords or context, app_name="skills", top_k=5, similarity_threshold=0.25
+            )
             if not hits:
                 note = (
                     "Keine relevante interne Vorwissensbasis gefunden."
@@ -226,7 +232,7 @@ class EngagementService:
                 )
                 artifact = await self._run(
                     "consulting.relevant-knowledge",
-                    {"context": query, "knowledge": block},
+                    {"context": context, "knowledge": block},
                     top_k=0,
                 )
         else:  # stakeholders — single-field skill input mapped to both required fields
