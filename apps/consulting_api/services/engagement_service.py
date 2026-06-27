@@ -216,16 +216,23 @@ class EngagementService:
             # keywords. Merge by source, keep the best score.
             context = f"{engagement.initial_input}\n\n{analysis}\n\n{engagement.requirements or ''}"
             keywords = await self._consulting.derive_search_keywords(context)
-            best: dict[str, object] = {}
-            for q in (keywords, context):
-                if not q.strip():
-                    continue
-                for h in await self._consulting.retrieve_knowledge(
-                    q, app_name="skills", top_k=5, similarity_threshold=0.25
-                ):
-                    if h.source_uri not in best or h.score > best[h.source_uri].score:
-                        best[h.source_uri] = h
-            hits = sorted(best.values(), key=lambda h: h.score, reverse=True)[:5]
+            queries = [q for q in (keywords, context) if q.strip()]
+
+            # Retrieve PER SOURCE with a cap, so no single source dominates. Radar reports are
+            # dense weekly snapshots that would otherwise crowd out the skills — cap at 1 (the
+            # most relevant). Internal, non-confidential Organizational-Memory sources only;
+            # more report types later = more (app_name, cap) entries.
+            async def _top(source: str, cap: int) -> list:
+                best: dict[str, object] = {}
+                for q in queries:
+                    for h in await self._consulting.retrieve_knowledge(
+                        q, source, top_k=cap * 2, similarity_threshold=0.25
+                    ):
+                        if h.source_uri not in best or h.score > best[h.source_uri].score:
+                            best[h.source_uri] = h
+                return sorted(best.values(), key=lambda h: h.score, reverse=True)[:cap]
+
+            hits = await _top("skills", 4) + await _top("radar", 1)
             if not hits:
                 note = (
                     "Keine relevante interne Vorwissensbasis gefunden."

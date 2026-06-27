@@ -65,9 +65,17 @@ technically-worded skill; **(2) query-side keyword expansion** —
 `ConsultingService.derive_search_keywords` distills the long, diffuse business context into a focused
 technical keyword bag. The step queries with both and merges by source. No technical solution
 implied → empty keywords + no description match → honest "none found".
+**Second source — Technology Radar:** `scripts/ingest_reports_local.py` reads the weekly radar
+report JSONs from S3 (`s3://ai-platform-documents-dev/radar/reports/…`, read-only), converts them
+with the platform's own `radar_to_text`, and ingests into the LOCAL store under `app_name="radar"`
+(`radar://…`) — reads S3, writes local, never the prod RDS. `retrieve_knowledge` takes a LIST of
+`app_name`s; the `knowledge` step retrieves **per source with a cap** (≈4 skills + 1 radar) so dense
+weekly radar snapshots don't crowd out the skills. Relevance stays honest: a "build X" problem
+surfaces skills; a "which tech/trends" problem also surfaces a radar report.
 Internal, non-confidential knowledge only — client engagement data stays in the isolated engagement
-DB and is never mixed into the shared store. Adding more sources later = more `app_name`s (ADRs,
-radar); a knowledge graph is deferred until relationship/traversal queries actually demand it.
+DB and is never mixed into the shared store. More sources later = more `(app_name, cap)` entries
+(competitor / regulatory / ADRs); a knowledge graph is deferred until relationship/traversal queries
+actually demand it.
 
 ## What This Product Is NOT
 
