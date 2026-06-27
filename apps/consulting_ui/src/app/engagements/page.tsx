@@ -426,6 +426,7 @@ function DetailView({ id }: { id: string }) {
             </h2>
             <div className="flex flex-wrap gap-2">
               {[
+                { tool: "patterns", label: "Pattern Fit" },
                 { tool: "roadmap", label: "Roadmap" },
                 { tool: "stakeholders", label: "Stakeholder Analysis" },
               ].map(({ tool, label }) => (
@@ -443,6 +444,7 @@ function DetailView({ id }: { id: string }) {
             {error && <p className="text-sm text-red-400">{error}</p>}
           </div>
 
+          <Section title="Pattern Fit (to validate)" body={eng.extras.patterns ?? null} />
           <Section title="Roadmap" body={eng.extras.roadmap ?? null} />
           <Section title="Stakeholder Analysis" body={eng.extras.stakeholders ?? null} />
         </>

@@ -27,6 +27,7 @@ from apps.consulting_api.services.eval_checks import (
     parse_judge_scores,
     run_checks,
 )
+from apps.consulting_api.services.patterns import load_pattern_catalog
 
 # Golden cases. `sections` (exact headings) only on EN cases — for DE the model
 # translates the headings, so exact matching would be brittle.
@@ -204,6 +205,21 @@ CASES: list[dict] = [
             "context": "Discovery interviews with team leads about why new hires take so long to become productive."
         },
     },
+    # ── pattern recognition (catalog passed in; top_k=0 — no framework RAG) ──
+    {
+        "id": "pattern-fit-en",
+        "skill": "consulting.match-patterns",
+        "lang": "en",
+        "top_k": 0,
+        "inputs": {
+            "context": (
+                "A 2,000-person company: new hires take months to ramp up because internal "
+                "knowledge is scattered across wikis, shared drives and people's heads; staff "
+                "constantly re-ask the same questions and experts are a bottleneck."
+            ),
+            "patterns": load_pattern_catalog(),
+        },
+    },
 ]
 
 # Preliminary-framing markers per skill (bilingual). A passing output hedges with at
@@ -223,6 +239,11 @@ SKILL_CAVEATS: dict[str, list[str]] = {
     ],
     "consulting.detect-assumptions": [
         "assumption", "validate", "annahme", "validieren", "überprüfen", "zu prüfen",
+    ],
+    # Patterns must be framed as hypotheses to validate, never as a confident label.
+    "consulting.match-patterns": [
+        "validate", "commonly", "resembl", "no strong", "to validate",
+        "validieren", "ähnel", "häufig", "kein eindeutig",
     ],
 }
 

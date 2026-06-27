@@ -41,8 +41,10 @@ are stored append-only in a JSONB `turns` column. Persisted via a **dedicated en
 shared public db-v2). Routes: `/api/v1/consulting/engagements*` (create / answer / conclude /
 generate / report; plus `PATCH`/`DELETE` for **lifecycle** — rename, archive, delete; archived
 engagements are hidden from the list unless `?include_archived=true`). **Context hand-off:** from
-a concluded engagement, generate downstream artifacts (Roadmap, Stakeholder Analysis) from its
-context; they attach under a JSONB `extras` column (`POST /engagements/{id}/generate`) — the
+a concluded engagement, generate downstream artifacts (Roadmap, Stakeholder Analysis, plus a
+**Pattern Fit** check against the curated `data/patterns/` catalog — 0–2 resembling archetypes to
+validate, never a solution) from its context; they attach under a JSONB `extras` column
+(`POST /engagements/{id}/generate` with `tool` = roadmap|stakeholders|patterns) — the
 engagement becomes the single case file (Discovery → Analysis → Delivery). **Report export:**
 `GET /engagements/{id}/report?format=md|docx|pdf` composes every artifact (situation, analysis,
 all rounds, requirements, assessment, downstream) into one downloadable file — Markdown, Word
@@ -304,6 +306,7 @@ a taxonomy for the UI/workflow, not separate systems.
 | `consulting.structure-requirements` | v1.4 | analysis | Goal vs requirement vs user-story split; INVEST stories; suggested capabilities (to validate); quality flags |
 | `consulting.refine-analysis` | v1.0 | analysis | Delta-aware refinement (Updated Findings) from answers — used by engagement round 2 |
 | `consulting.consultant-assessment` | v1.0 | analysis | AI-assisted assessment + prioritisation (risks/impact/quick wins) — preliminary, to validate |
+| `consulting.match-patterns` | v1.0 | analysis | Matches the engagement against a curated project-archetype catalog (`data/patterns/`); surfaces 0–2 resembling patterns with confidence as commonly-observed items **to validate** — never a label, never a solution |
 | `consulting.structure-roadmap` | v1.0 | delivery | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
 
 **Input contract:** structured user context (defined required fields per skill)

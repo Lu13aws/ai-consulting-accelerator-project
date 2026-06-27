@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.consulting_api.api.schemas import StructureRequest
 from apps.consulting_api.services.consulting_service import ConsultingService, _detect_language
+from apps.consulting_api.services.patterns import load_pattern_catalog
 from apps.consulting_api.storage.engagement_models import Engagement
 
 
@@ -55,6 +56,7 @@ def build_report(engagement: Engagement) -> str:
     section("Consultant's Assessment", engagement.assessment)
 
     extras = engagement.extras or {}
+    section("Pattern Fit (to validate)", extras.get("patterns"))
     section("Roadmap", extras.get("roadmap"))
     section("Stakeholder Analysis", extras.get("stakeholders"))
 
@@ -66,9 +68,9 @@ class EngagementService:
         self._eng = engagement_session
         self._consulting = ConsultingService(rag_session)
 
-    async def _run(self, skill: str, inputs: dict[str, str]) -> str:
+    async def _run(self, skill: str, inputs: dict[str, str], *, top_k: int = 6) -> str:
         resp = await self._consulting.structure_artifact(
-            StructureRequest(skill=skill, inputs=inputs)
+            StructureRequest(skill=skill, inputs=inputs, top_k=top_k)
         )
         return resp.artifact
 
@@ -169,8 +171,8 @@ class EngagementService:
         await self._eng.flush()
         return engagement
 
-    # Downstream tools that can be generated from an engagement's context.
-    DOWNSTREAM_TOOLS = ("roadmap", "stakeholders")
+    # Tools that can be generated from a (concluded) engagement's context.
+    DOWNSTREAM_TOOLS = ("roadmap", "stakeholders", "patterns")
 
     async def generate(self, engagement_id: UUID, tool: str) -> Engagement:
         """Generate a downstream artifact (roadmap / stakeholders) from the engagement
@@ -192,6 +194,15 @@ class EngagementService:
                     "goals": analysis,
                     "known_scope": engagement.requirements or "",
                 },
+            )
+        elif tool == "patterns":
+            # Pattern recognition: match the understanding against the curated catalog.
+            # top_k=0 — the grounding is the catalog (passed in), not the framework RAG.
+            context = f"{engagement.initial_input}\n\n{analysis}"
+            artifact = await self._run(
+                "consulting.match-patterns",
+                {"context": context, "patterns": load_pattern_catalog()},
+                top_k=0,
             )
         else:  # stakeholders — single-field skill input mapped to both required fields
             context = f"{engagement.initial_input}\n\n{analysis}"
