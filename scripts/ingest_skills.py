@@ -26,7 +26,7 @@ from uuid import uuid4
 
 from aiplatform.ingestion.chunker import Chunker
 from aiplatform.ingestion.deduplication import content_changed, hash_content
-from aiplatform.ingestion.loaders import get_loader
+from aiplatform.ingestion.loaders import _strip_markdown
 from aiplatform.llm import get_llm_provider
 from aiplatform.retrieval.embedder import Embedder
 from aiplatform.storage.database import get_async_session
@@ -49,6 +49,33 @@ def derive_category_name(path: Path) -> tuple[str, str]:
     return category, name
 
 
+# Frontmatter keys we recognise (capability metadata). `description` is the business-language
+# bridge that gets PREPENDED to the embedded text; the rest are stored for later filtering.
+_META_KEYS = ("description", "domains", "capabilities")
+
+
+def parse_frontmatter(raw: str) -> tuple[dict, str]:
+    """Split a leading `---`…`---` YAML-ish block. Tiny parser (scalars + `[a, b]` lists) — no
+    PyYAML dependency. Returns (metadata, body); ({}, raw) when there is no frontmatter."""
+    lines = raw.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}, raw
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if end is None:
+        return {}, raw
+    meta: dict = {}
+    for line in lines[1:end]:
+        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        key, val = key.strip(), val.strip()
+        if val.startswith("[") and val.endswith("]"):
+            meta[key] = [x.strip().strip("'\"") for x in val[1:-1].split(",") if x.strip()]
+        elif val:
+            meta[key] = val.strip("'\"")
+    return meta, "\n".join(lines[end + 1 :])
+
+
 def collect_files(folder: Path) -> list[Path]:
     return sorted(folder.rglob("SKILL.md"))
 
@@ -57,12 +84,15 @@ async def ingest_one(session, path: Path) -> tuple[str, int, str]:
     category, name = derive_category_name(path)
     source_uri = f"skill://{category}/{name}"
 
-    loader = get_loader(str(path))
-    loaded = await loader.load(str(path))
-    if not loaded.content.strip():
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    fm, body = parse_frontmatter(raw)
+    content = _strip_markdown(body)
+    if not content.strip():
         return ("failed", 0, "no extractable text")
 
-    new_hash = hash_content(loaded.content)
+    description = fm.get("description")
+    # Identity hash covers description + body so re-tagging triggers a re-embed.
+    new_hash = hash_content(f"{description}\n\n{content}" if description else content)
     existing_by_uri = await session.scalar(
         select(Document).where(Document.source_uri == source_uri)
     )
@@ -78,8 +108,15 @@ async def ingest_one(session, path: Path) -> tuple[str, int, str]:
         if existing_by_hash is not None:
             return ("skipped", 0, f"identical content already indexed ({existing_by_hash.source_uri})")
 
-    metadata = {**loaded.metadata, "category": category, "name": name, "knowledge_type": "skill"}
-    chunks = Chunker().split(loaded.content, metadata=metadata)
+    metadata = {"filename": path.name, "category": category, "name": name, "knowledge_type": "skill"}
+    metadata.update({k: fm[k] for k in _META_KEYS if k in fm})
+    chunker = Chunker()
+    chunks = chunker.split(content, metadata=metadata)
+    if description:
+        # Embed the business-language description as its OWN chunk — prepending it into a long
+        # technical chunk dilutes the signal, so a business query still wouldn't match. As a
+        # standalone chunk it is a pure business-language vector that bridges to the skill.
+        chunks = chunker.split(description, metadata={**metadata, "part": "description"}) + chunks
     if not chunks:
         return ("failed", 0, "produced 0 chunks")
 
@@ -93,22 +130,23 @@ async def ingest_one(session, path: Path) -> tuple[str, int, str]:
             source_uri=source_uri,
             content_hash=new_hash,
             title=name,
-            mime_type=loaded.mime_type,
+            mime_type="text/markdown",
             doc_metadata=metadata,
             app_name=APP_NAME,
         )
     )
     await session.flush()
+    tag = " +desc" if description else ""
 
     chunk_ids: list = []
-    for chunk in chunks:
+    for idx, chunk in enumerate(chunks):
         chunk_id = uuid4()
         chunk_ids.append(chunk_id)
         session.add(
             Chunk(
                 id=chunk_id,
                 document_id=doc_id,
-                chunk_index=chunk.chunk_index,
+                chunk_index=idx,
                 content=chunk.content,
                 content_hash=hash_content(chunk.content),
                 token_count=chunk.token_count,
@@ -127,7 +165,7 @@ async def ingest_one(session, path: Path) -> tuple[str, int, str]:
                 provider=emb.provider.value,
             )
         )
-    return ("ingested", len(chunks), f"{len(chunks)} chunks")
+    return ("ingested", len(chunks), f"{len(chunks)} chunks{tag}")
 
 
 async def run(files: list[Path], dry_run: bool) -> int:

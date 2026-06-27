@@ -54,13 +54,17 @@ all rounds, requirements, assessment, downstream) into one downloadable file —
 **Organizational Memory (pilot):** the platform's vector store is `app_name`-scoped, so it doubles
 as a cross-source knowledge index. `scripts/ingest_skills.py` ingests the personal-toolkit Skills
 into the shared store under `app_name="skills"` (`skill://<category>/<name>`). The engagement's
-`knowledge` step (`consulting.relevant-knowledge` + `ConsultingService.retrieve_knowledge`) then
-first expands the business context into a **technical keyword bag**
-(`ConsultingService.derive_search_keywords` — business problems and technical skills live in
-different vocabularies, so a raw business query under-retrieves), then retrieves relevant *existing*
-skills (threshold 0.25) and presents them as **cited references to validate** — it connects existing
-knowledge, never invents it (the grounded alternative to an "experience layer"). No technical
-solution implied → empty keywords → honest "none found".
+`knowledge` step (`consulting.relevant-knowledge` + `ConsultingService.retrieve_knowledge`)
+retrieves relevant *existing* skills (threshold 0.25) and presents them as **cited references to
+validate** — it connects existing knowledge, never invents it (the grounded alternative to an
+"experience layer"). Closing the business↔technical **vocabulary gap** uses two complementary,
+deliberately simple signals (no clever retrieval pipeline): **(1) document-side capability
+metadata** — an optional `description:` (business-language) in a SKILL.md YAML frontmatter, which
+`ingest_skills.py` parses and embeds as its OWN chunk so a business query matches a
+technically-worded skill; **(2) query-side keyword expansion** —
+`ConsultingService.derive_search_keywords` distills the long, diffuse business context into a focused
+technical keyword bag. The step queries with both and merges by source. No technical solution
+implied → empty keywords + no description match → honest "none found".
 Internal, non-confidential knowledge only — client engagement data stays in the isolated engagement
 DB and is never mixed into the shared store. Adding more sources later = more `app_name`s (ADRs,
 radar); a knowledge graph is deferred until relationship/traversal queries actually demand it.

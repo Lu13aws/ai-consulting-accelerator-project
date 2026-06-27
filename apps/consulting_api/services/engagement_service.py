@@ -209,14 +209,23 @@ class EngagementService:
         elif tool == "knowledge":
             # Organizational Memory: retrieve relevant EXISTING internal knowledge (skills)
             # and present it as cited references — never invented. Empty → say so (no LLM).
-            # Business problems and technical skills live in different vocabularies, so first
-            # expand the context into a technical keyword bag (closes that gap); fall back to
-            # the raw context if no technical solution is implied.
+            # Two complementary signals, merged: (1) a focused technical keyword bag distilled
+            # from the context (sharp query — best recall), and (2) the business context itself
+            # (matches skills tagged with a business-language `description`). Neither alone
+            # suffices: a long business problem embeds diffusely; an un-tagged skill needs the
+            # keywords. Merge by source, keep the best score.
             context = f"{engagement.initial_input}\n\n{analysis}\n\n{engagement.requirements or ''}"
             keywords = await self._consulting.derive_search_keywords(context)
-            hits = await self._consulting.retrieve_knowledge(
-                keywords or context, app_name="skills", top_k=5, similarity_threshold=0.25
-            )
+            best: dict[str, object] = {}
+            for q in (keywords, context):
+                if not q.strip():
+                    continue
+                for h in await self._consulting.retrieve_knowledge(
+                    q, app_name="skills", top_k=5, similarity_threshold=0.25
+                ):
+                    if h.source_uri not in best or h.score > best[h.source_uri].score:
+                        best[h.source_uri] = h
+            hits = sorted(best.values(), key=lambda h: h.score, reverse=True)[:5]
             if not hits:
                 note = (
                     "Keine relevante interne Vorwissensbasis gefunden."
