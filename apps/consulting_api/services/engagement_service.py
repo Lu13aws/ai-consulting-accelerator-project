@@ -232,7 +232,12 @@ class EngagementService:
                             best[h.source_uri] = h
                 return sorted(best.values(), key=lambda h: h.score, reverse=True)[:cap]
 
-            hits = await _top("skills", 4) + await _top("radar", 1)
+            # (app_name, cap) per Organizational-Memory source. Reports capped at 1 each (dense
+            # weekly snapshots) so the how-to skills aren't crowded out; relevance gating keeps
+            # an irrelevant source out entirely.
+            hits = []
+            for source, cap in (("skills", 4), ("radar", 1), ("competitor", 1), ("regulatory", 1)):
+                hits += await _top(source, cap)
             if not hits:
                 note = (
                     "Keine relevante interne Vorwissensbasis gefunden."
