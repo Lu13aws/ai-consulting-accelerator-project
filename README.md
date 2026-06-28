@@ -309,6 +309,13 @@ threshold gates irrelevant sources out (honest "no relevant prior knowledge foun
 > engagement data stays in the isolated engagement DB and is never mixed in. Adding a source later
 > = one more `(app_name, cap)` entry; a knowledge graph is deferred until traversal queries demand it.
 
+**Keeping it fresh.** All ingests are idempotent (SHA-256 dedup), so re-running only re-embeds
+new/changed content. `scripts/refresh_memory.py` re-runs all sources in one command (skills,
+reports `--latest`, projects). Real weekly automation is a deploy/prod concern — the platform
+already runs the radar pipelines on a schedule and auto-indexes them; locally, run the refresh on
+demand (or point Windows Task Scheduler at it). Retrieval is **embed-once**: each query text is
+embedded a single time and run as one multi-`app_name` search, then capped per source.
+
 ---
 
 ## Data Source
@@ -519,6 +526,7 @@ deploy/freshness deferred.
 | `scripts/ingest_skills.py` | Ingest toolkit `SKILL.md` (parses `description` frontmatter) → `app_name="skills"` | `uv run python scripts/ingest_skills.py` |
 | `scripts/ingest_reports_local.py` | Read radar/competitor/regulatory reports from S3 (read-only) → local store, `app_name` per type | `uv run python scripts/ingest_reports_local.py [--type radar] [--latest]` |
 | `scripts/ingest_projects_local.py` | Ingest project READMEs → `app_name="projects"` (`project://<slug>`, LLM-seeded business description) | `uv run python scripts/ingest_projects_local.py` |
+| `scripts/refresh_memory.py` | One-command refresh of all local memory sources (idempotent; only new/changed content re-embeds) | `uv run python scripts/refresh_memory.py` |
 | `scripts/eval.py` | Quality eval: golden cases → rule checks (+ opt-in LLM judge). Calls the real LLM (~cents) | `uv run python scripts/eval.py [--judge --judge-model gpt-4o]` |
 | `scripts/deploy.py` | Build/push Lambda image; provision Lambda + API Gateway (VPC, JWT). `--build-only` validates the image with no AWS | `uv run python scripts/deploy.py` |
 | `scripts/deploy_frontend.py` | Build the static UI and ship to S3 + CloudFront | `uv run python scripts/deploy_frontend.py` |

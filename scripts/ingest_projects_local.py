@@ -79,14 +79,17 @@ async def ingest_one(session, provider, path: Path, slug: str, label: str) -> tu
     if not content.strip():
         return ("failed", 0, "empty README")
 
-    description = await describe(provider, label, content)
+    # Identity = the README content only (the LLM `description` is derived and not perfectly
+    # deterministic). Check dedup BEFORE generating the description, so an unchanged README
+    # skips with no LLM call — the refresh is then truly idempotent.
     uri = f"project://{slug}"
-    new_hash = hash_content(f"{description}\n\n{content}")
-
+    new_hash = hash_content(content)
     existing = await session.scalar(select(Document).where(Document.source_uri == uri))
+    if existing is not None and not content_changed(new_hash, existing.content_hash):
+        return ("skipped", 0, "unchanged")
+
+    description = await describe(provider, label, content)
     if existing is not None:
-        if not content_changed(new_hash, existing.content_hash):
-            return ("skipped", 0, "unchanged")
         await session.execute(sql_delete(Document).where(Document.id == existing.id))
         await session.flush()
 
