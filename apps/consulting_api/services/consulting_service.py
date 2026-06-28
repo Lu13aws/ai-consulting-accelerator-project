@@ -173,40 +173,50 @@ spaces. If the problem implies no technical/software solution at all, output not
 
     async def retrieve_knowledge(
         self,
-        query: str,
-        app_names: str | list[str],
-        top_k: int = 5,
-        similarity_threshold: float | None = 0.3,
+        queries: str | list[str],
+        source_caps: list[tuple[str, int]],
+        similarity_threshold: float | None = 0.25,
     ) -> list[SourceReference]:
-        """Retrieve existing knowledge from one or more OTHER app indexes (e.g. "skills",
-        "radar") for the cross-source "Organizational Memory" — returns cited references,
-        nothing generated. Empty list means nothing relevant was found (no fabrication)."""
-        names = [app_names] if isinstance(app_names, str) else list(app_names)
-        provider = get_llm_provider()
-        query_embedding = await Embedder(provider).embed_query(query)
+        """Cross-source "Organizational Memory" retrieval — returns cited references, nothing
+        generated (empty = nothing relevant found, no fabrication).
+
+        Each query text is embedded ONCE and run as a single multi-`app_name` search
+        (`app_name = ANY(...)`); results are then capped PER SOURCE (`source_caps`) so a dense
+        source can't crowd out the others. Multiple query texts (e.g. a keyword bag + the raw
+        business context) are merged by source, keeping the best score."""
+        texts = [queries] if isinstance(queries, str) else [q for q in queries if q and q.strip()]
+        if not texts or not source_caps:
+            return []
+
+        apps = [app for app, _ in source_caps]
+        pool_k = max(8, sum(cap for _, cap in source_caps) * 5)
+        embedder = Embedder(get_llm_provider())
         store = VectorStore(self._session)
 
-        refs: list[SourceReference] = []
-        for name in names:  # one query embedding, reused per app_name (VectorStore filters one app)
-            results = await store.search(
-                query_embedding.vector,
-                top_k=top_k,
-                app_name=name,
-                similarity_threshold=similarity_threshold,
-            )
-            refs.extend(
-                SourceReference(
-                    chunk_id=str(r.chunk_id),
-                    source_uri=r.source_uri,
-                    score=round(r.score, 4),
-                    excerpt=r.content[:300].strip(),
-                    category=r.metadata.get("category"),
-                    language=r.metadata.get("language"),
-                )
-                for r in results
-            )
-        refs.sort(key=lambda s: s.score, reverse=True)
-        return refs[:top_k]
+        best: dict[str, tuple[SourceReference, str]] = {}  # source_uri -> (ref, app_name)
+        for text in texts:
+            vector = (await embedder.embed_query(text)).vector
+            for r in await store.search(
+                vector, top_k=pool_k, app_name=apps, similarity_threshold=similarity_threshold
+            ):
+                if r.source_uri not in best or r.score > best[r.source_uri][0].score:
+                    best[r.source_uri] = (
+                        SourceReference(
+                            chunk_id=str(r.chunk_id),
+                            source_uri=r.source_uri,
+                            score=round(r.score, 4),
+                            excerpt=r.content[:300].strip(),
+                            category=r.metadata.get("category"),
+                            language=r.metadata.get("language"),
+                        ),
+                        r.app_name or "",
+                    )
+
+        out: list[SourceReference] = []
+        for app, cap in source_caps:  # per-source cap, sources kept in the given order
+            bucket = [ref for ref, ref_app in best.values() if ref_app == app]
+            out += sorted(bucket, key=lambda s: s.score, reverse=True)[:cap]
+        return out
 
     async def list_sources(self) -> SourcesResponse:
         """List the framework documents currently indexed for consulting."""

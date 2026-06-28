@@ -216,28 +216,13 @@ class EngagementService:
             # keywords. Merge by source, keep the best score.
             context = f"{engagement.initial_input}\n\n{analysis}\n\n{engagement.requirements or ''}"
             keywords = await self._consulting.derive_search_keywords(context)
-            queries = [q for q in (keywords, context) if q.strip()]
-
-            # Retrieve PER SOURCE with a cap, so no single source dominates. Radar reports are
-            # dense weekly snapshots that would otherwise crowd out the skills — cap at 1 (the
-            # most relevant). Internal, non-confidential Organizational-Memory sources only;
-            # more report types later = more (app_name, cap) entries.
-            async def _top(source: str, cap: int) -> list:
-                best: dict[str, object] = {}
-                for q in queries:
-                    for h in await self._consulting.retrieve_knowledge(
-                        q, source, top_k=cap * 2, similarity_threshold=0.25
-                    ):
-                        if h.source_uri not in best or h.score > best[h.source_uri].score:
-                            best[h.source_uri] = h
-                return sorted(best.values(), key=lambda h: h.score, reverse=True)[:cap]
-
-            # (app_name, cap) per Organizational-Memory source. Reports capped at 1 each (dense
-            # weekly snapshots) so the how-to skills aren't crowded out; relevance gating keeps
-            # an irrelevant source out entirely.
-            hits = []
-            for source, cap in (("skills", 4), ("projects", 1), ("radar", 1), ("competitor", 1), ("regulatory", 1)):
-                hits += await _top(source, cap)
+            # Cross-source Organizational Memory: query with the keyword bag AND the business
+            # context (each embedded once), capped per source so dense weekly reports can't crowd
+            # out the how-to skills. More sources later = more (app_name, cap) entries.
+            hits = await self._consulting.retrieve_knowledge(
+                [keywords, context],
+                [("skills", 4), ("projects", 1), ("radar", 1), ("competitor", 1), ("regulatory", 1)],
+            )
             if not hits:
                 note = (
                     "Keine relevante interne Vorwissensbasis gefunden."
