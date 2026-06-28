@@ -236,7 +236,7 @@ class EngagementService:
             # weekly snapshots) so the how-to skills aren't crowded out; relevance gating keeps
             # an irrelevant source out entirely.
             hits = []
-            for source, cap in (("skills", 4), ("radar", 1), ("competitor", 1), ("regulatory", 1)):
+            for source, cap in (("skills", 4), ("projects", 1), ("radar", 1), ("competitor", 1), ("regulatory", 1)):
                 hits += await _top(source, cap)
             if not hits:
                 note = (

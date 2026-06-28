@@ -69,8 +69,13 @@ implied → empty keywords + no description match → honest "none found".
 reads the weekly report JSONs from S3 (`s3://ai-platform-documents-dev/{radar,competitor,regulatory}/reports/…`,
 read-only), converts them with the platform's own `_CONVERTERS`, and ingests into the LOCAL store —
 one `app_name` per type (`radar`/`competitor`/`regulatory`, URIs `radar://…` etc.). Reads S3, writes
-local, never the prod RDS. `retrieve_knowledge` takes a LIST of `app_name`s; the `knowledge` step
-retrieves **per source with a cap** — `(skills 4, radar 1, competitor 1, regulatory 1)` — so dense
+local, never the prod RDS. **Project knowledge:** `scripts/ingest_projects_local.py` ingests project
+READMEs (own portfolio projects) under `app_name="projects"` (`project://<slug>`) — a README captures
+how a project was built and why, so an engagement can surface a *resembling prior project* as a
+reference; like skills, a one-line business `description` is LLM-seeded and embedded as its OWN chunk
+to bridge the vocabulary gap (READMEs are long/diffuse). `retrieve_knowledge` takes a LIST of
+`app_name`s; the `knowledge` step retrieves **per source with a cap** —
+`(skills 4, projects 1, radar 1, competitor 1, regulatory 1)` — so dense
 weekly snapshots don't crowd out the how-to skills, and an irrelevant source is simply gated out.
 Relevance stays honest: a "build X" problem surfaces skills; "which tech/trends" adds a radar report;
 "competitive landscape" adds a competitor report. (Regulatory reports are often thin — "no changes

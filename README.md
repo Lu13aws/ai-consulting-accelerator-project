@@ -70,8 +70,8 @@ ai-consulting-accelerator-project/
 
 Documents from all apps share one schema (`documents` / `chunks` / `embeddings`), scoped by
 `app_name`. Framework Q&A uses `app_name="consulting"`; the **Organizational Memory** (below)
-reuses the same store under additional, independently-ingested `app_name`s (`skills`, `radar`,
-`competitor`, `regulatory`) — a cross-source index without any new infrastructure.
+reuses the same store under additional, independently-ingested `app_name`s (`skills`, `projects`,
+`radar`, `competitor`, `regulatory`) — a cross-source index without any new infrastructure.
 
 ---
 
@@ -138,7 +138,7 @@ Sources → ingested into the shared store, one app_name each (internal, non-con
 Engagement "knowledge" step (consulting.relevant-knowledge):
   business context
   → derive_search_keywords()             distil business → technical keyword bag (bridge the vocabulary gap)
-  → retrieve_knowledge([skills, radar, competitor, regulatory], threshold 0.25)   per-source caps (4/1/1/1)
+  → retrieve_knowledge([skills, projects, radar, competitor, regulatory], threshold 0.25)   per-source caps (4/1/1/1/1)
   → cited references to VALIDATE (skill:// , radar:// …) — never recommendations, "none found" if nothing fits
 ```
 
@@ -291,6 +291,8 @@ relevant ones during an engagement as cited references:
 - `scripts/ingest_skills.py` → toolkit `SKILL.md` under `app_name="skills"` (`skill://…`)
 - `scripts/ingest_reports_local.py` → weekly reports read **read-only from S3**, ingested **locally**
   under `app_name` = `radar` / `competitor` / `regulatory` (`radar://…`) — never the prod RDS
+- `scripts/ingest_projects_local.py` → project READMEs under `app_name="projects"` (`project://<slug>`) —
+  surfaces a *resembling prior project* as a reference (one-line business `description` LLM-seeded as its own chunk)
 
 **Closing the business↔technical vocabulary gap** (the key finding) uses two complementary, simple
 signals — *no clever retrieval pipeline*:
@@ -516,6 +518,7 @@ deploy/freshness deferred.
 | `scripts/ingest_frameworks.py` | Ingest `data/` PDFs/HTML into pgvector (dedup, metadata) | `uv run python scripts/ingest_frameworks.py --folder data/` |
 | `scripts/ingest_skills.py` | Ingest toolkit `SKILL.md` (parses `description` frontmatter) → `app_name="skills"` | `uv run python scripts/ingest_skills.py` |
 | `scripts/ingest_reports_local.py` | Read radar/competitor/regulatory reports from S3 (read-only) → local store, `app_name` per type | `uv run python scripts/ingest_reports_local.py [--type radar] [--latest]` |
+| `scripts/ingest_projects_local.py` | Ingest project READMEs → `app_name="projects"` (`project://<slug>`, LLM-seeded business description) | `uv run python scripts/ingest_projects_local.py` |
 | `scripts/eval.py` | Quality eval: golden cases → rule checks (+ opt-in LLM judge). Calls the real LLM (~cents) | `uv run python scripts/eval.py [--judge --judge-model gpt-4o]` |
 | `scripts/deploy.py` | Build/push Lambda image; provision Lambda + API Gateway (VPC, JWT). `--build-only` validates the image with no AWS | `uv run python scripts/deploy.py` |
 | `scripts/deploy_frontend.py` | Build the static UI and ship to S3 + CloudFront | `uv run python scripts/deploy_frontend.py` |
