@@ -6,11 +6,9 @@ import { Loader2 } from "lucide-react";
 
 import Markdown from "@/components/Markdown";
 import SourcesPanel from "@/components/SourcesPanel";
-import { api, type StructureResponse } from "@/lib/api";
+import type { StructureResponse } from "@/lib/api";
 
-type TabId = "problem" | "requirements" | "roadmap";
-
-interface FieldDef {
+export interface FieldDef {
   key: string;
   label: string;
   placeholder: string;
@@ -18,57 +16,37 @@ interface FieldDef {
   rows: number;
 }
 
-const TABS: { id: TabId; label: string; fields: FieldDef[]; submit: (f: Record<string, string>) => Promise<StructureResponse> }[] = [
-  {
-    id: "problem",
-    label: "Business Problem",
-    fields: [
-      { key: "problem_description", label: "Business problem", placeholder: "Describe your business problem…", required: true, rows: 6 },
-    ],
-    submit: (f) => api.structureProblem(f.problem_description),
-  },
-  {
-    id: "requirements",
-    label: "Requirements",
-    fields: [
-      { key: "requirements", label: "Raw requirements", placeholder: "Paste your raw requirements here…", required: true, rows: 6 },
-    ],
-    submit: (f) => api.structureRequirements(f.requirements),
-  },
-  {
-    id: "roadmap",
-    label: "Roadmap",
-    fields: [
-      { key: "vision", label: "Product / project vision", placeholder: "What are you building, for whom, and why?", required: true, rows: 3 },
-      { key: "goals", label: "Goals / outcomes", placeholder: "Target outcomes, ideally measurable", required: true, rows: 2 },
-      { key: "known_scope", label: "Known scope / features", placeholder: "Known features or scope items (optional)", required: false, rows: 2 },
-      { key: "constraints", label: "Constraints / timeline", placeholder: "Deadlines, team, budget, tech (optional)", required: false, rows: 2 },
-      { key: "target_users", label: "Target users / stakeholders", placeholder: "Who are the users / stakeholders? (optional)", required: false, rows: 2 },
-    ],
-    submit: (f) =>
-      api.structureRoadmap({
-        vision: f.vision,
-        goals: f.goals,
-        known_scope: f.known_scope,
-        constraints: f.constraints,
-        target_users: f.target_users,
-      }),
-  },
-];
+export interface ToolTab {
+  id: string;
+  label: string;
+  fields: FieldDef[];
+  submit: (f: Record<string, string>) => Promise<StructureResponse>;
+}
 
-function StructureInner() {
+interface Props {
+  title: string;
+  blurb: string;
+  tabs: ToolTab[];
+}
+
+// A single free-text "context" field — the shape most discovery/analysis skills take.
+export function contextField(placeholder: string): FieldDef {
+  return { key: "context", label: "Context", placeholder, required: true, rows: 6 };
+}
+
+function ToolTabsInner({ title, blurb, tabs }: Props) {
   const searchParams = useSearchParams();
-  const initial = (searchParams.get("tab") as TabId) || "problem";
-  const [tab, setTab] = useState<TabId>(TABS.some((t) => t.id === initial) ? initial : "problem");
+  const initial = searchParams.get("tab") || tabs[0].id;
+  const [tab, setTab] = useState(tabs.some((t) => t.id === initial) ? initial : tabs[0].id);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<StructureResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const active = useMemo(() => TABS.find((t) => t.id === tab)!, [tab]);
+  const active = useMemo(() => tabs.find((t) => t.id === tab)!, [tabs, tab]);
   const missingRequired = active.fields.some((f) => f.required && !(fields[f.key] ?? "").trim());
 
-  function switchTab(id: TabId) {
+  function switchTab(id: string) {
     if (id === tab) return;
     setTab(id);
     setFields({});
@@ -94,16 +72,12 @@ function StructureInner() {
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-100">Structurer</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Turn raw input into an IREB/BABOK-aligned draft. Grounded in cited frameworks,
-          follows your language (DE/EN).
-        </p>
+        <h1 className="text-2xl font-semibold text-slate-100">{title}</h1>
+        <p className="text-sm text-slate-500 mt-1">{blurb}</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-800 mb-6">
-        {TABS.map((t) => (
+      <div className="flex flex-wrap gap-1 border-b border-slate-800 mb-6">
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => switchTab(t.id)}
@@ -143,7 +117,7 @@ function StructureInner() {
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-lg text-sm font-medium text-white transition-colors"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
-            {loading ? "Structuring…" : "Structure"}
+            {loading ? "Working…" : "Generate"}
           </button>
         </div>
       </form>
@@ -170,10 +144,10 @@ function StructureInner() {
   );
 }
 
-export default function StructurePage() {
+export default function ToolTabs(props: Props) {
   return (
     <Suspense>
-      <StructureInner />
+      <ToolTabsInner {...props} />
     </Suspense>
   );
 }

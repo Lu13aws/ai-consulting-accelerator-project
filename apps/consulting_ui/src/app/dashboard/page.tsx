@@ -29,13 +29,13 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
     blurb: "Understand the business situation — problem, stakeholders, risks, unknowns.",
     tools: [
       { href: "/chat", label: "Framework Q&A", icon: MessageSquare, color: "text-blue-400", desc: "Ask the indexed frameworks (IREB, BABOK, BPMN, PMBOK). Cited answers." },
-      { href: "/structure?tab=problem", label: "Business Problem", icon: FileText, color: "text-teal-400", desc: "Current/target state, pain points, goals, success metrics, root cause, scope." },
-      { href: "/stakeholders", label: "Stakeholder Analysis", icon: Users, color: "text-orange-400", desc: "Role categories, RACI skeleton, influence/interest, engagement & comms plan." },
-      { href: "/discovery?skill=consulting.identify-risks", label: "Risks", icon: ShieldAlert, color: "text-red-400", desc: "Risk · Impact · Probability · Recommendation." },
-      { href: "/discovery?skill=consulting.detect-assumptions", label: "Assumptions", icon: ClipboardList, color: "text-amber-400", desc: "Surface implicit assumptions to validate." },
-      { href: "/discovery?skill=consulting.open-questions", label: "Open Questions", icon: HelpCircle, color: "text-sky-400", desc: "Clarification questions to ask before designing a solution." },
-      { href: "/discovery?skill=consulting.generate-hypotheses", label: "Hypotheses", icon: Lightbulb, color: "text-yellow-400", desc: "Root-cause hypotheses when the cause is not yet known." },
-      { href: "/discovery?skill=consulting.interview-guide", label: "Interview Guide", icon: Mic, color: "text-purple-400", desc: "A stakeholder discovery interview guide." },
+      { href: "/discovery?tab=problem", label: "Business Problem", icon: FileText, color: "text-teal-400", desc: "Current/target state, pain points, goals, success metrics, root cause, scope." },
+      { href: "/discovery?tab=stakeholders", label: "Stakeholder Analysis", icon: Users, color: "text-orange-400", desc: "Role categories, RACI skeleton, influence/interest, engagement & comms plan." },
+      { href: "/discovery?tab=risks", label: "Risks", icon: ShieldAlert, color: "text-red-400", desc: "Risk · Impact · Probability · Recommendation." },
+      { href: "/discovery?tab=assumptions", label: "Assumptions", icon: ClipboardList, color: "text-amber-400", desc: "Surface implicit assumptions to validate." },
+      { href: "/discovery?tab=open-questions", label: "Open Questions", icon: HelpCircle, color: "text-sky-400", desc: "Clarification questions to ask before designing a solution." },
+      { href: "/discovery?tab=hypotheses", label: "Hypotheses", icon: Lightbulb, color: "text-yellow-400", desc: "Root-cause hypotheses when the cause is not yet known." },
+      { href: "/discovery?tab=interview-guide", label: "Interview Guide", icon: Mic, color: "text-purple-400", desc: "A stakeholder discovery interview guide." },
     ],
   },
   {
@@ -43,8 +43,8 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
     title: "Analysis",
     blurb: "Turn understanding into structured solution design.",
     tools: [
-      { href: "/structure?tab=requirements", label: "Requirements Structurer", icon: ListChecks, color: "text-green-400", desc: "Classify requirements (BR/FR/NFR/constraint/…), INVEST user stories, quality flags." },
-      { href: "/discovery?skill=consulting.consultant-assessment", label: "Consultant Assessment", icon: Gauge, color: "text-pink-400", desc: "Initial assessment + prioritisation (risks, impact, quick wins) — preliminary, to validate." },
+      { href: "/analysis?tab=requirements", label: "Requirements Structurer", icon: ListChecks, color: "text-green-400", desc: "Classify requirements (BR/FR/NFR/constraint/…), INVEST user stories, quality flags." },
+      { href: "/analysis?tab=assessment", label: "Consultant Assessment", icon: Gauge, color: "text-pink-400", desc: "Initial assessment + prioritisation (risks, impact, quick wins) — preliminary, to validate." },
     ],
   },
   {
@@ -52,7 +52,7 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
     title: "Delivery",
     blurb: "Support project planning.",
     tools: [
-      { href: "/structure?tab=roadmap", label: "Roadmap Generator", icon: Map, color: "text-indigo-400", desc: "Now / Next / Later roadmap plus an agile backlog (Epic → Feature → User Story)." },
+      { href: "/delivery?tab=roadmap", label: "Roadmap Generator", icon: Map, color: "text-indigo-400", desc: "Now / Next / Later roadmap plus an agile backlog (Epic → Feature → User Story)." },
     ],
   },
 ];

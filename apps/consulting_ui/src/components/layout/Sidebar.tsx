@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Compass, FileText, LayoutDashboard, MessageSquare, Users } from "lucide-react";
+import { Briefcase, Compass, LayoutDashboard, MessageSquare, Microscope, Rocket } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/chat", label: "Framework Q&A", icon: MessageSquare },
   { href: "/discovery", label: "Discovery", icon: Compass },
-  { href: "/structure", label: "Structurer", icon: FileText },
-  { href: "/stakeholders", label: "Stakeholders", icon: Users },
+  { href: "/analysis", label: "Analysis", icon: Microscope },
+  { href: "/delivery", label: "Delivery", icon: Rocket },
   { href: "/engagements", label: "Engagements", icon: Briefcase },
 ];
 

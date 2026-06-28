@@ -103,7 +103,7 @@ User question  (UI /chat)
 **Structuring & Discovery skills:**
 
 ```
-User input  (UI /structure, /discovery, /stakeholders)
+User input  (UI /discovery, /analysis, /delivery — tabbed tool pages per layer)
 → POST /api/v1/consulting/{structure/*, run, stakeholders}
 → named skill (skills registry) + server-side language detect (DE/EN lock)
 → retrieve grounding chunks            (filtered to the input language)
@@ -170,8 +170,9 @@ lifecycle (rename/archive/delete). See the Engagements + Organizational-Memory d
 blocks above; endpoints under `POST/GET/PATCH/DELETE /api/v1/consulting/engagements*`
 (`generate` `tool` = roadmap | stakeholders | patterns | knowledge).
 
-UI routes: `/dashboard` (tools grouped by layer), `/chat`, `/discovery`, `/structure`
-(Business Problem / Requirements / Roadmap tabs), `/stakeholders`, `/engagements`.
+UI routes mirror the layers: `/dashboard` (tools grouped by layer), `/chat` (Framework Q&A),
+`/discovery` · `/analysis` · `/delivery` (tabbed tool pages — a shared `ToolTabs` component), and
+`/engagements`. Deep-link a specific tool with `?tab=<id>` (e.g. `/discovery?tab=stakeholders`).
 
 ---
 
