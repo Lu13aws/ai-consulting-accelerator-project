@@ -43,6 +43,8 @@ ai-consulting-accelerator-project/
 │   ├── ingest_frameworks.py        # bulk .pdf/.html ingestion (dedup, language/category metadata)
 │   ├── ingest_skills.py            # toolkit SKILL.md → store under app_name="skills" (Organizational Memory)
 │   ├── ingest_reports_local.py     # S3 radar/competitor/regulatory reports → local store (app_name per type)
+│   ├── ingest_projects_local.py    # project READMEs → app_name="projects" (LLM-seeded business description)
+│   ├── refresh_memory.py           # one-command idempotent refresh of all memory sources
 │   ├── eval.py                     # quality eval harness (golden cases + rule checks + opt-in LLM judge)
 │   ├── deploy.py                   # Lambda container + API Gateway HTTP API (VPC, JWT)
 │   ├── deploy_frontend.py          # build + ship UI to S3 + CloudFront
@@ -133,6 +135,7 @@ never the shared public db-v2 (confidential client data).
 ```
 Sources → ingested into the shared store, one app_name each (internal, non-confidential only):
   scripts/ingest_skills.py          toolkit SKILL.md            → app_name="skills"
+  scripts/ingest_projects_local.py  project READMEs             → app_name="projects"
   scripts/ingest_reports_local.py   S3 weekly reports (read-only) → "radar" / "competitor" / "regulatory"
 
 Engagement "knowledge" step (consulting.relevant-knowledge):
@@ -516,6 +519,27 @@ layer") and without anchoring early or prescribing solutions.
 13 skills; engagements now surface resembling patterns + cited references from skills and the three
 radar sources (relevance-gated, "none found" when nothing fits); 70 tests green. All local —
 deploy/freshness deferred.
+
+### 20260628
+
+**Organizational Memory — fifth source, leaner retrieval, freshness + layer-based UI**
+- **Project knowledge** as a fifth source (`scripts/ingest_projects_local.py` → `app_name="projects"`):
+  7 project READMEs, each with an LLM-seeded one-line business `description` embedded as its own chunk.
+  A fitting engagement now surfaces a *resembling prior project* as a cited reference (e.g. a real-time
+  problem → `project://maritime`).
+- **Embed-once + multi-`app_name` retrieval:** `VectorStore.search` accepts an `app_name` list
+  (`= ANY(...)`) and returns `app_name`; `retrieve_knowledge` embeds each query once and caps per
+  source `(skills 4, projects/radar/competitor/regulatory 1)` — ~10 embeds/run → 2.
+- **Freshness:** `scripts/refresh_memory.py` (one idempotent command for all sources); project ingest
+  made truly idempotent (hash on README content, dedup before the LLM call). Scheduling = a deploy concern.
+- **Layer-based UI:** sidebar reorganised to Dashboard · Framework Q&A · Discovery · Analysis · Delivery ·
+  Engagements; the Structurer/Stakeholders pages folded into three layer pages via a shared `ToolTabs`.
+- **Strategy:** critically reviewed and **recommended against** a separate Build-Agent platform (worse
+  than Claude Code; value is templating, not an agent) — deploy the existing products next instead.
+
+**Result**
+5 Organizational-Memory sources, deterministic cross-source references, idempotent refresh, layer-based
+navigation; 70 tests green. Still local — deploy is the next step.
 
 ---
 
