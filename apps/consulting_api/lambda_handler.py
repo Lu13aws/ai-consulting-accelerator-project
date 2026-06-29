@@ -44,8 +44,16 @@ def _ingest_memory() -> dict:
     skills_dir = _DATA_ROOT / "_memory" / "skills"
     projects_dir = _DATA_ROOT / "_memory" / "projects"
     skill_files = collect_skills(skills_dir)
-    rc_skills = asyncio.run(run_skills(skill_files, dry_run=False))
-    rc_projects = asyncio.run(run_projects(dry_run=False, from_dir=projects_dir))
+
+    async def _run_all() -> tuple[int, int]:
+        # Run skills + projects in ONE event loop: the shared async DB engine binds to the
+        # loop that first touches it, so a second asyncio.run() (a fresh loop) breaks asyncpg
+        # with "got Future attached to a different loop" / "another operation is in progress".
+        rc_s = await run_skills(skill_files, dry_run=False)
+        rc_p = await run_projects(dry_run=False, from_dir=projects_dir)
+        return rc_s, rc_p
+
+    rc_skills, rc_projects = asyncio.run(_run_all())
     return {
         "status": "ok" if (rc_skills == 0 and rc_projects == 0) else "partial",
         "skills": len(skill_files),
