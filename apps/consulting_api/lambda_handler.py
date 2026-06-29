@@ -4,10 +4,13 @@ AWS Lambda entrypoint for the consulting API.
 Default invocation: Mangum adapts API Gateway HTTP API events to the FastAPI app.
 
 One-off maintenance invocations (payload {"action": ...}):
-  {"action": "ingest"}  -> ingest the framework PDFs baked into the image (data/)
-                           into the production DB from inside the VPC. Use this once
-                           after the first deploy to populate ai-platform-db-v2.
-  {"action": "health"}  -> lightweight check that returns the app name.
+  {"action": "ingest"}         -> ingest the framework PDFs baked into the image (data/)
+                                  into the production DB from inside the VPC. Run once after
+                                  the first deploy to populate ai-platform-db-v2.
+  {"action": "ingest_memory"}  -> ingest the Organizational Memory baked into the image
+                                  (data/_memory/skills + data/_memory/projects) under
+                                  app_name="skills" / "projects". Run once after the first deploy.
+  {"action": "health"}         -> lightweight check that returns the app name.
 """
 
 import asyncio
@@ -32,10 +35,30 @@ def _ingest() -> dict:
     return {"status": "ok" if exit_code == 0 else "partial", "files": len(files)}
 
 
+def _ingest_memory() -> dict:
+    """Ingest the baked Organizational Memory (skills + projects) into the production DB."""
+    from scripts.ingest_projects_local import run as run_projects
+    from scripts.ingest_skills import collect_files as collect_skills
+    from scripts.ingest_skills import run as run_skills
+
+    skills_dir = _DATA_ROOT / "_memory" / "skills"
+    projects_dir = _DATA_ROOT / "_memory" / "projects"
+    skill_files = collect_skills(skills_dir)
+    rc_skills = asyncio.run(run_skills(skill_files, dry_run=False))
+    rc_projects = asyncio.run(run_projects(dry_run=False, from_dir=projects_dir))
+    return {
+        "status": "ok" if (rc_skills == 0 and rc_projects == 0) else "partial",
+        "skills": len(skill_files),
+        "projects": len(list(projects_dir.glob("*.md"))) if projects_dir.is_dir() else 0,
+    }
+
+
 def handler(event, context):
     action = event.get("action") if isinstance(event, dict) else None
     if action == "ingest":
         return _ingest()
+    if action == "ingest_memory":
+        return _ingest_memory()
     if action == "health":
         return {"status": "ok", "app": "consulting"}
     return _mangum(event, context)

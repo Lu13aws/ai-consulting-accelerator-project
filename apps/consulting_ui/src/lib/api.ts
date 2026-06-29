@@ -1,8 +1,24 @@
-// Typed client for the consulting API (/api/v1/consulting/*). Public demo — no auth.
+// Typed client for the consulting API (/api/v1/consulting/*).
 // Base URL configurable via NEXT_PUBLIC_API_URL (defaults to localhost:8000).
+// When Cognito is configured (deployed build), requests carry a Bearer token and a 401
+// sends the user back to /login; locally (no auth) it behaves as an open API.
+
+import { AUTH_ENABLED, getToken, logout } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const BASE = `${API_URL}/api/v1/consulting`;
+
+function authHeaders(): Record<string, string> {
+  const token = AUTH_ENABLED ? getToken() : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function on401(status: number): void {
+  if (AUTH_ENABLED && status === 401 && typeof window !== "undefined") {
+    logout();
+    window.location.href = "/login";
+  }
+}
 
 export interface SourceReference {
   chunk_id: string;
@@ -69,18 +85,22 @@ export interface EngagementDetail {
 }
 
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const res = await fetch(`${BASE}${path}`, { headers: { ...authHeaders() } });
+  if (!res.ok) {
+    on401(res.status);
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
   return res.json() as Promise<T>;
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    on401(res.status);
     let detail = `${res.status} ${res.statusText}`;
     try {
       const data = await res.json();
@@ -96,16 +116,22 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 async function patch<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    on401(res.status);
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
   return res.json() as Promise<T>;
 }
 
 async function del(path: string): Promise<void> {
-  const res = await fetch(`${BASE}${path}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers: { ...authHeaders() } });
+  if (!res.ok) {
+    on401(res.status);
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
 }
 
 export const api = {
@@ -142,6 +168,27 @@ export const api = {
     post<EngagementDetail>(`/engagements/${id}/conclude`, {}),
   generateFromEngagement: (id: string, tool: string) =>
     post<EngagementDetail>(`/engagements/${id}/generate`, { tool }),
-  reportUrl: (id: string, format: "md" | "docx" | "pdf" = "md") =>
-    `${BASE}/engagements/${id}/report?format=${format}`,
+  // Auth-aware download: fetch with the Bearer header (a plain <a> can't send it under JWT),
+  // then trigger a browser download from the blob.
+  downloadReport: async (id: string, format: "md" | "docx" | "pdf") => {
+    const res = await fetch(`${BASE}/engagements/${id}/report?format=${format}`, {
+      headers: { ...authHeaders() },
+    });
+    if (!res.ok) {
+      on401(res.status);
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const match = cd.match(/filename="?([^"]+)"?/);
+    const name = match ? match[1] : `engagement.${format}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

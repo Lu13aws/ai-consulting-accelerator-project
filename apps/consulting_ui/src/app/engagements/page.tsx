@@ -329,13 +329,13 @@ function DetailView({ id }: { id: string }) {
             ["docx", "Word"],
             ["pdf", "PDF"],
           ] as const).map(([fmt, label]) => (
-            <a
+            <button
               key={fmt}
-              href={api.reportUrl(eng.id, fmt)}
+              onClick={() => api.downloadReport(eng.id, fmt).catch((err) => setError(err instanceof Error ? err.message : "Download failed"))}
               className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-blue-600 hover:text-blue-400"
             >
               <FileDown size={12} /> {label}
-            </a>
+            </button>
           ))}
           <span className="mx-1 h-4 w-px bg-slate-700" />
           <button

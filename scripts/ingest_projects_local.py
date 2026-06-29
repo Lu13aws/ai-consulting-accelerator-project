@@ -71,10 +71,7 @@ async def describe(provider, label: str, body: str) -> str:
     return " ".join(resp.content.replace("\n", " ").split()).strip().strip('"').rstrip(".")
 
 
-async def ingest_one(session, provider, path: Path, slug: str, label: str) -> tuple[str, int, str]:
-    readme = find_readme(path)
-    if readme is None:
-        return ("failed", 0, "no README found")
+async def ingest_one(session, provider, readme: Path, slug: str, label: str) -> tuple[str, int, str]:
     content = _strip_markdown(readme.read_text(encoding="utf-8", errors="replace"))
     if not content.strip():
         return ("failed", 0, "empty README")
@@ -138,28 +135,45 @@ async def ingest_one(session, provider, path: Path, slug: str, label: str) -> tu
     return ("ingested", len(chunks), f"{len(chunks)} chunks | desc: {description}")
 
 
-async def run(dry_run: bool) -> int:
-    print(f"\napp_name : {APP_NAME}\nprojects : {len(PROJECTS)}")
+def resolve_jobs(from_dir: Path | None) -> list[tuple[Path, str, str]]:
+    """(readme_path, slug, label) per project. Either the curated local PROJECTS list, or — for
+    the in-VPC/prod ingest — every `<slug>.md` in a directory (label derived from the slug)."""
+    if from_dir is not None:
+        jobs = []
+        for md in sorted(Path(from_dir).glob("*.md")):
+            slug = md.stem
+            jobs.append((md, slug, slug.replace("-", " ").replace("_", " ").title()))
+        return jobs
+    jobs = []
+    for path, slug, label in PROJECTS:
+        readme = find_readme(Path(path))
+        if readme is not None:
+            jobs.append((readme, slug, label))
+    return jobs
+
+
+async def run(dry_run: bool, from_dir: Path | None = None) -> int:
+    jobs = resolve_jobs(from_dir)
+    print(f"\napp_name : {APP_NAME}\nprojects : {len(jobs)}{' (from ' + str(from_dir) + ')' if from_dir else ''}")
     print(f"mode     : {'DRY-RUN' if dry_run else 'INGEST (read files, local write)'}\n")
     if dry_run:
-        for path, slug, _label in PROJECTS:
-            readme = find_readme(Path(path))
-            print(f"  project://{slug:14} {'OK' if readme else 'MISSING'}  <- {readme or path}")
+        for readme, slug, _label in jobs:
+            print(f"  project://{slug:14} <- {readme}")
         return 0
 
     provider = get_llm_provider()
     totals = {"ingested": 0, "skipped": 0, "failed": 0}
     total_chunks = 0
-    for i, (path, slug, label) in enumerate(PROJECTS, 1):
+    for i, (readme, slug, label) in enumerate(jobs, 1):
         try:
             async with get_async_session() as session:
-                status, n, msg = await ingest_one(session, provider, Path(path), slug, label)
+                status, n, msg = await ingest_one(session, provider, readme, slug, label)
             totals[status] += 1
             total_chunks += n
-            print(f"  [{i}/{len(PROJECTS)}] project://{slug}\n        [{ {'ingested':'ok','skipped':'skip','failed':'err'}[status] }] {msg}")
+            print(f"  [{i}/{len(jobs)}] project://{slug}\n        [{ {'ingested':'ok','skipped':'skip','failed':'err'}[status] }] {msg}")
         except Exception as exc:  # noqa: BLE001
             totals["failed"] += 1
-            print(f"  [{i}/{len(PROJECTS)}] project://{slug}\n        [err] {type(exc).__name__}: {exc}")
+            print(f"  [{i}/{len(jobs)}] project://{slug}\n        [err] {type(exc).__name__}: {exc}")
 
     print("\n" + "=" * 60)
     print(f"Done: {totals['ingested']} ingested | {totals['skipped']} skipped | "
@@ -169,9 +183,10 @@ async def run(dry_run: bool) -> int:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Ingest project READMEs into local pgvector (app_name=projects).")
+    ap.add_argument("--from-dir", type=str, help="Ingest every <slug>.md in this directory (prod/in-VPC mode).")
     ap.add_argument("--dry-run", action="store_true", help="List planned project:// URIs; no LLM/DB writes.")
     args = ap.parse_args()
-    sys.exit(asyncio.run(run(args.dry_run)))
+    sys.exit(asyncio.run(run(args.dry_run, Path(args.from_dir) if args.from_dir else None)))
 
 
 if __name__ == "__main__":

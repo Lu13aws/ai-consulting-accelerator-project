@@ -88,8 +88,32 @@ def stage_build_context() -> None:
     )
     shutil.copy(REPO_ROOT / "Dockerfile.lambda", BUILD_CONTEXT / "Dockerfile.lambda")
 
+    _stage_org_memory(BUILD_CONTEXT / "data" / "_memory")
     _write_requirements(BUILD_CONTEXT / "requirements.lambda.txt")
     print("  [stage] done")
+
+
+def _stage_org_memory(mem: Path) -> None:
+    """Bake the Organizational Memory into the image so it can be ingested in-VPC after deploy:
+    toolkit skills (preserving <category>/<name>/SKILL.md) and each project README as <slug>.md.
+    Read from their real local paths at build time — nothing is committed to this repo."""
+    from scripts.ingest_projects_local import PROJECTS, find_readme
+    from scripts.ingest_skills import DEFAULT_SKILLS_DIR
+
+    skills, projects = 0, 0
+    if DEFAULT_SKILLS_DIR.is_dir():
+        for skill_md in DEFAULT_SKILLS_DIR.rglob("SKILL.md"):
+            dst = mem / "skills" / skill_md.relative_to(DEFAULT_SKILLS_DIR)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(skill_md, dst)
+            skills += 1
+    (mem / "projects").mkdir(parents=True, exist_ok=True)
+    for path, slug, _label in PROJECTS:
+        readme = find_readme(Path(path))
+        if readme is not None:
+            shutil.copy(readme, mem / "projects" / f"{slug}.md")
+            projects += 1
+    print(f"  [stage] org memory — {skills} skills, {projects} project READMEs")
 
 
 def _write_requirements(target: Path) -> None:
