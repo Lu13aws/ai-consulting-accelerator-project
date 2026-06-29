@@ -85,6 +85,13 @@ async def ingest_one(session, provider, readme: Path, slug: str, label: str) -> 
     if existing is not None and not content_changed(new_hash, existing.content_hash):
         return ("skipped", 0, "unchanged")
 
+    # content_hash is globally unique in the shared db-v2: identical content may already be
+    # indexed under another source_uri/app_name (e.g. the platform's own copy). Skip instead of
+    # hitting a UniqueViolation — keeps the ingest idempotent (mirrors ingest_frameworks).
+    existing_by_hash = await session.scalar(select(Document).where(Document.content_hash == new_hash))
+    if existing_by_hash is not None and (existing is None or existing_by_hash.id != existing.id):
+        return ("skipped", 0, f"identical content already indexed ({existing_by_hash.source_uri}, app={existing_by_hash.app_name})")
+
     description = await describe(provider, label, content)
     if existing is not None:
         await session.execute(sql_delete(Document).where(Document.id == existing.id))
