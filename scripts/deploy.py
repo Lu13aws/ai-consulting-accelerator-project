@@ -52,14 +52,13 @@ BUILD_CONTEXT = REPO_ROOT / "build" / "lambda"
 _BASIC_POLICY = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 _VPC_POLICY = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 
-# Routes: /health and docs are public; the data endpoints require a valid JWT.
+# Private deploy: only /health is public. Everything else — the whole consulting API
+# (/api/v1/consulting/*, engagements incl. PATCH/DELETE) and docs — requires a valid JWT.
+# A catch-all $default with the authorizer avoids enumerating every route (and prevents the
+# trap where unlisted routes silently fall through to an unauthenticated default).
 ROUTE_CONFIGS = [
     ("GET /health", False),
-    ("POST /api/v1/query", True),
-    ("POST /api/v1/structure", True),
-    ("GET /api/v1/skills", True),
-    ("GET /api/v1/sources", True),
-    ("$default", False),  # /docs, /openapi.json, etc.
+    ("$default", True),
 ]
 
 
@@ -276,21 +275,24 @@ def setup_api(apigw, lambda_client, fn_arn: str, account_id: str,
     origins = [o for o in [frontend_origin, "https://consulting.bridging-data.com",
                            "http://localhost:3000"] if o]
 
+    cors_cfg = {
+        "AllowOrigins": origins,
+        # Engagement lifecycle uses PATCH/DELETE; preflight is handled by API Gateway, so the
+        # CORS config (not the app's middleware) is what the browser sees on the deployed API.
+        "AllowMethods": ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        "AllowHeaders": ["Content-Type", "Authorization"],
+        "MaxAge": 300,
+    }
+
     apis = apigw.get_apis(MaxResults="100")["Items"]
     api = next((a for a in apis if a["Name"] == API_NAME), None)
     if api:
         api_id, endpoint = api["ApiId"], api["ApiEndpoint"]
-        print(f"  [apigw] API exists: {api_id}")
+        # Keep CORS current on re-deploy (e.g. adding the CloudFront origin via --frontend-origin).
+        apigw.update_api(ApiId=api_id, CorsConfiguration=cors_cfg)
+        print(f"  [apigw] API exists: {api_id} (CORS updated)")
     else:
-        created = apigw.create_api(
-            Name=API_NAME, ProtocolType="HTTP",
-            CorsConfiguration={
-                "AllowOrigins": origins,
-                "AllowMethods": ["GET", "POST", "OPTIONS"],
-                "AllowHeaders": ["Content-Type", "Authorization"],
-                "MaxAge": 300,
-            },
-        )
+        created = apigw.create_api(Name=API_NAME, ProtocolType="HTTP", CorsConfiguration=cors_cfg)
         api_id, endpoint = created["ApiId"], created["ApiEndpoint"]
         print(f"  [apigw] created API: {api_id}")
 
