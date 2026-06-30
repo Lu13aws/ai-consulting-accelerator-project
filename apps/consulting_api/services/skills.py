@@ -541,6 +541,63 @@ Rules:
 )
 
 
+# ── Compliance (analysis layer) ───────────────────────────────────────────────
+
+_COMPLIANCE_MATURITY = StructuringSkill(
+    name="compliance.assess-maturity",
+    version="1.0",
+    description=(
+        "Assess AI project compliance maturity against NIST AI RMF, GDPR/DSG, and AWS "
+        "Well-Architected Security Pillar. Produces a prioritized gap analysis with "
+        "recommended artifacts."
+    ),
+    required_fields=["project_description", "data_categories", "user_types", "deployment_context"],
+    optional_fields=["existing_controls", "target_maturity_level"],
+    layer="analysis",
+    retrieval_seed=(
+        "AI compliance maturity assessment NIST AI RMF GDPR controls gap analysis "
+        "data protection"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+You are a compliance advisor for small AI projects.
+
+Given the project description, assess compliance maturity against:
+1. NIST AI RMF (GOVERN, MAP, MEASURE, MANAGE)
+2. GDPR / Swiss DSG (core data protection obligations)
+3. AWS Well-Architected Security Pillar (if cloud-deployed)
+
+Produce a structured output with these sections:
+
+**Maturity Assessment**
+- NIST AI RMF: X% — brief justification
+- GDPR / Swiss DSG: X% — brief justification
+- AWS Well-Architected Security: X% — brief justification (if applicable)
+
+**Must-Have Gaps (address before any customer demo)**
+List top 3–5 gaps that create real risk or client credibility issues.
+
+**Recommended Gaps (address for Customer-Ready maturity)**
+List top 3–5 gaps that are expected at a professional demo.
+
+**Artifacts to Create (in priority order)**
+| Artifact | Why needed | Effort |
+|---|---|---|
+| MODEL_CARD.md | ... | Low |
+
+**Current Maturity Level**
+One of: Demo-Ready / Customer-Ready / Production-Ready
+With a one-sentence explanation.
+
+Rules:
+- Always end with this disclaimer, on its own line: "AI-generated compliance assessment — requires review by a qualified compliance advisor before acting."
+- Do not claim the output constitutes legal compliance documentation.
+- Do not provide legal advice.
+- Flag when the project's data categories require higher scrutiny (health, financial, biometric data).""",
+)
+
+
 SKILLS: dict[str, StructuringSkill] = {
     s.name: s
     for s in (
@@ -557,6 +614,7 @@ SKILLS: dict[str, StructuringSkill] = {
         _MATCH_PATTERNS,
         _RELEVANT_KNOWLEDGE,
         _ROADMAP,
+        _COMPLIANCE_MATURITY,
     )
 }
 

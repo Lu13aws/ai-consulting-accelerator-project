@@ -22,9 +22,11 @@ EXPECTED_SKILLS = {
     "consulting.consultant-assessment",
     "consulting.match-patterns",
     "consulting.relevant-knowledge",
+    "compliance.assess-maturity",
 }
 
 VALID_LAYERS = {"discovery", "analysis", "delivery"}
+VALID_NAMESPACES = {"consulting", "compliance"}
 
 
 def test_all_expected_skills_registered():
@@ -46,7 +48,8 @@ def test_get_skill_unknown_raises_valueerror_listing_available():
 
 @pytest.mark.parametrize("skill", SKILLS.values(), ids=lambda s: s.name)
 def test_skill_contract_is_well_formed(skill: StructuringSkill):
-    assert skill.name.startswith("consulting.")
+    assert skill.name.split(".")[0] in VALID_NAMESPACES, "skill name must use a known namespace"
+    assert "." in skill.name, "skill name must be namespaced (namespace.skill)"
     assert skill.version  # non-empty, e.g. "1.0"
     assert skill.description
     assert skill.required_fields, "every skill must declare at least one required field"
