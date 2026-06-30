@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Mic,
   ShieldAlert,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -45,6 +46,7 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
     tools: [
       { href: "/analysis?tab=requirements", label: "Requirements Structurer", icon: ListChecks, color: "text-green-400", desc: "Classify requirements (BR/FR/NFR/constraint/…), INVEST user stories, quality flags." },
       { href: "/analysis?tab=assessment", label: "Consultant Assessment", icon: Gauge, color: "text-pink-400", desc: "Initial assessment + prioritisation (risks, impact, quick wins) — preliminary, to validate." },
+      { href: "/analysis?tab=compliance", label: "Compliance Maturity", icon: ShieldCheck, color: "text-emerald-400", desc: "Assess AI compliance maturity (NIST AI RMF, GDPR/DSG, AWS Well-Architected Security) — prioritized gap analysis + artifacts." },
     ],
   },
   {
