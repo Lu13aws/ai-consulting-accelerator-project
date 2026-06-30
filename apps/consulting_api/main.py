@@ -39,7 +39,11 @@ def _bootstrap_schema() -> None:
         from apps.consulting_api.storage.engagement_db import ENGAGEMENT_DB_URL
         from apps.consulting_api.storage.engagement_models import Base as EngagementBase
 
-        eng_engine = _create_sync_engine(ENGAGEMENT_DB_URL.replace("+asyncpg", ""))
+        # asyncpg -> psycopg2: drop the +asyncpg driver AND translate the asyncpg-only
+        # `ssl=require` query param to psycopg2's `sslmode=require` (else psycopg2 rejects the DSN
+        # with "invalid connection option 'ssl'" and the engagement table is never created).
+        eng_sync_url = ENGAGEMENT_DB_URL.replace("+asyncpg", "").replace("ssl=require", "sslmode=require")
+        eng_engine = _create_sync_engine(eng_sync_url)
         EngagementBase.metadata.create_all(eng_engine)
         # create_all does not add columns to an existing table — apply additive changes.
         from sqlalchemy import text as _sql_text
