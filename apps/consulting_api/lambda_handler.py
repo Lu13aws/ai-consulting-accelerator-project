@@ -39,6 +39,20 @@ async def _with_fresh_pool(coro):
     return await coro
 
 
+def _run_action(coro):
+    """Run a maintenance coroutine WITHOUT poisoning the warm container for later API requests.
+    asyncio.run() closes its loop and sets the thread's current loop to None; a subsequent Mangum
+    (API) invocation on the same warm container then dies in asyncio.get_event_loop() with
+    'no current event loop'. So run on a dedicated loop and leave a fresh current loop behind."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(_with_fresh_pool(coro))
+    finally:
+        loop.close()
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
+
 def _ingest(index: int | None = None) -> dict:
     """Run the framework ingestion against the configured (production) DB.
 
@@ -51,7 +65,7 @@ def _ingest(index: int | None = None) -> dict:
     total = len(files)
     if index is not None:
         files = files[index : index + 1]
-    exit_code = asyncio.run(_with_fresh_pool(run(files, _DATA_ROOT, dry_run=False)))
+    exit_code = _run_action(run(files, _DATA_ROOT, dry_run=False))
     return {"status": "ok" if exit_code == 0 else "partial", "files": len(files), "index": index, "total": total}
 
 
@@ -71,7 +85,7 @@ def _ingest_memory() -> dict:
         rc_p = await run_projects(dry_run=False, from_dir=projects_dir)
         return rc_s, rc_p
 
-    rc_skills, rc_projects = asyncio.run(_with_fresh_pool(_run_all()))
+    rc_skills, rc_projects = _run_action(_run_all())
     return {
         "status": "ok" if (rc_skills == 0 and rc_projects == 0) else "partial",
         "skills": len(skill_files),
@@ -92,7 +106,7 @@ def _status() -> dict:
             ).all()
         return dict(rows)
 
-    return {"status": "ok", "documents_by_app": asyncio.run(_with_fresh_pool(_q()))}
+    return {"status": "ok", "documents_by_app": _run_action(_q())}
 
 
 def handler(event, context):
