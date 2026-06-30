@@ -58,6 +58,9 @@ _VPC_POLICY = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionR
 # trap where unlisted routes silently fall through to an unauthenticated default).
 ROUTE_CONFIGS = [
     ("GET /health", False),
+    # CORS preflight must bypass the JWT authorizer (else the browser's OPTIONS gets 401 and blocks
+    # the real request). It reaches the Lambda, where Starlette's CORSMiddleware answers it 200.
+    ("OPTIONS /{proxy+}", False),
     ("$default", True),
 ]
 
@@ -272,27 +275,20 @@ def create_or_update_lambda(lambda_client, role_arn: str, image_uri: str,
 def setup_api(apigw, lambda_client, fn_arn: str, account_id: str,
               pool_id: str, client_id: str, frontend_origin: str | None) -> str:
     issuer = f"https://cognito-idp.{REGION}.amazonaws.com/{pool_id}"
-    origins = [o for o in [frontend_origin, "https://consulting.bridging-data.com",
-                           "http://localhost:3000"] if o]
 
-    cors_cfg = {
-        "AllowOrigins": origins,
-        # Engagement lifecycle uses PATCH/DELETE; preflight is handled by API Gateway, so the
-        # CORS config (not the app's middleware) is what the browser sees on the deployed API.
-        "AllowMethods": ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        "AllowHeaders": ["Content-Type", "Authorization"],
-        "MaxAge": 300,
-    }
-
+    # CORS is owned by the app (Starlette CORSMiddleware, allow-list incl. the frontend origins) —
+    # the single source of headers. API Gateway must NOT also add CorsConfiguration or the browser
+    # sees duplicate Access-Control-Allow-Origin headers and rejects the response. API GW only routes;
+    # the OPTIONS /{proxy+} route (no authorizer) lets preflight reach the app.
     apis = apigw.get_apis(MaxResults="100")["Items"]
     api = next((a for a in apis if a["Name"] == API_NAME), None)
     if api:
         api_id, endpoint = api["ApiId"], api["ApiEndpoint"]
-        # Keep CORS current on re-deploy (e.g. adding the CloudFront origin via --frontend-origin).
-        apigw.update_api(ApiId=api_id, CorsConfiguration=cors_cfg)
-        print(f"  [apigw] API exists: {api_id} (CORS updated)")
+        with contextlib.suppress(Exception):
+            apigw.delete_cors_configuration(ApiId=api_id)  # drop any prior API-GW CORS (app owns it)
+        print(f"  [apigw] API exists: {api_id}")
     else:
-        created = apigw.create_api(Name=API_NAME, ProtocolType="HTTP", CorsConfiguration=cors_cfg)
+        created = apigw.create_api(Name=API_NAME, ProtocolType="HTTP")
         api_id, endpoint = created["ApiId"], created["ApiEndpoint"]
         print(f"  [apigw] created API: {api_id}")
 
