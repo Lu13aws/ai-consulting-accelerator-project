@@ -61,12 +61,30 @@ def _ingest_memory() -> dict:
     }
 
 
+def _status() -> dict:
+    """Count indexed documents per app_name in the production DB (ingest progress check)."""
+    from aiplatform.storage.database import get_async_session
+    from aiplatform.storage.models import Document
+    from sqlalchemy import func, select
+
+    async def _q() -> dict:
+        async with get_async_session() as session:
+            rows = (
+                await session.execute(select(Document.app_name, func.count()).group_by(Document.app_name))
+            ).all()
+        return dict(rows)
+
+    return {"status": "ok", "documents_by_app": asyncio.run(_q())}
+
+
 def handler(event, context):
     action = event.get("action") if isinstance(event, dict) else None
     if action == "ingest":
         return _ingest()
     if action == "ingest_memory":
         return _ingest_memory()
+    if action == "status":
+        return _status()
     if action == "health":
         return {"status": "ok", "app": "consulting"}
     return _mangum(event, context)
