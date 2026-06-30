@@ -39,13 +39,20 @@ async def _with_fresh_pool(coro):
     return await coro
 
 
-def _ingest() -> dict:
-    """Run the framework ingestion against the configured (production) DB."""
+def _ingest(index: int | None = None) -> dict:
+    """Run the framework ingestion against the configured (production) DB.
+
+    With `index` (0-based), ingest ONLY that one file — used to drive a per-file orchestration so a
+    single oversized PDF that exceeds the 900s/3008MB Lambda limits is skipped (its invocation times
+    out) instead of blocking every file after it in the alphabetical bulk run."""
     from scripts.ingest_frameworks import collect_files, run
 
     files = collect_files(_DATA_ROOT)
+    total = len(files)
+    if index is not None:
+        files = files[index : index + 1]
     exit_code = asyncio.run(_with_fresh_pool(run(files, _DATA_ROOT, dry_run=False)))
-    return {"status": "ok" if exit_code == 0 else "partial", "files": len(files)}
+    return {"status": "ok" if exit_code == 0 else "partial", "files": len(files), "index": index, "total": total}
 
 
 def _ingest_memory() -> dict:
@@ -91,7 +98,7 @@ def _status() -> dict:
 def handler(event, context):
     action = event.get("action") if isinstance(event, dict) else None
     if action == "ingest":
-        return _ingest()
+        return _ingest(event.get("index"))
     if action == "ingest_memory":
         return _ingest_memory()
     if action == "status":
