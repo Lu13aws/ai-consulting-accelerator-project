@@ -26,12 +26,25 @@ _mangum = Mangum(app, lifespan="off")
 _DATA_ROOT = Path(__file__).resolve().parent.parent.parent / "data"
 
 
+async def _with_fresh_pool(coro):
+    """Lambda reuses warm containers, so the module-global async engine's connection pool can be
+    bound to a previous invocation's (now-closed) event loop — which breaks asyncpg on every DB op
+    with "got Future attached to a different loop" / "another operation is in progress". Drop the
+    stale pool first so new connections open in THIS loop (close=False avoids awaiting the old
+    cross-loop connections). The coroutine is created by the caller but only awaited here, after
+    the dispose."""
+    from aiplatform.storage.database import engine
+
+    await engine.dispose(close=False)
+    return await coro
+
+
 def _ingest() -> dict:
     """Run the framework ingestion against the configured (production) DB."""
     from scripts.ingest_frameworks import collect_files, run
 
     files = collect_files(_DATA_ROOT)
-    exit_code = asyncio.run(run(files, _DATA_ROOT, dry_run=False))
+    exit_code = asyncio.run(_with_fresh_pool(run(files, _DATA_ROOT, dry_run=False)))
     return {"status": "ok" if exit_code == 0 else "partial", "files": len(files)}
 
 
@@ -46,14 +59,12 @@ def _ingest_memory() -> dict:
     skill_files = collect_skills(skills_dir)
 
     async def _run_all() -> tuple[int, int]:
-        # Run skills + projects in ONE event loop: the shared async DB engine binds to the
-        # loop that first touches it, so a second asyncio.run() (a fresh loop) breaks asyncpg
-        # with "got Future attached to a different loop" / "another operation is in progress".
+        # Skills + projects share ONE event loop (a second asyncio.run() would rebind the engine).
         rc_s = await run_skills(skill_files, dry_run=False)
         rc_p = await run_projects(dry_run=False, from_dir=projects_dir)
         return rc_s, rc_p
 
-    rc_skills, rc_projects = asyncio.run(_run_all())
+    rc_skills, rc_projects = asyncio.run(_with_fresh_pool(_run_all()))
     return {
         "status": "ok" if (rc_skills == 0 and rc_projects == 0) else "partial",
         "skills": len(skill_files),
@@ -74,7 +85,7 @@ def _status() -> dict:
             ).all()
         return dict(rows)
 
-    return {"status": "ok", "documents_by_app": asyncio.run(_q())}
+    return {"status": "ok", "documents_by_app": asyncio.run(_with_fresh_pool(_q()))}
 
 
 def handler(event, context):
