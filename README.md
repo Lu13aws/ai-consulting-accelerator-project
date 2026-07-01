@@ -50,8 +50,10 @@ ai-consulting-accelerator-project/
 │   ├── deploy_frontend.py          # build + ship UI to S3 + CloudFront
 │   └── setup_consulting_cognito.py # (optional) Cognito demo pool
 ├── data/                           # framework PDFs (by category) + patterns/ (curated project archetypes)
+├── compliance/                     # self-assessment docs: MODEL_CARD, ROPA, SECURITY_CONTROLS
+├── research/                       # framework notes + compliance_mapping.md (NIST AI RMF / GDPR-DSG / AWS WA)
 ├── tests/                          # pytest: skills, ingestion helpers, API
-├── infra/                          # vpc_config.json (gitignored; copied from the platform repo)
+├── infra/                          # vpc_config.json + deploy.env (both gitignored)
 ├── CLAUDE.md  DEPLOY.md  README.md
 └── pyproject.toml                  # aiplatform installed editable via [tool.uv.sources]
 ```
@@ -68,7 +70,7 @@ ai-consulting-accelerator-project/
 | LLM | OpenAI `gpt-4o-mini` (provider swappable via `aiplatform`) |
 | Frontend | Next.js (App Router, TypeScript, Tailwind v4, lucide-react), static export |
 | Reused platform code | `aiplatform`: loaders, chunker, embedder, vector store, LLM providers, ORM models, settings |
-| Deployment (scripts ready, not yet run) | Lambda container + API Gateway HTTP API (in VPC); S3 + CloudFront for the UI |
+| Deployment (live, private single-admin) | Lambda container + API Gateway HTTP API (VPC, Cognito JWT) at consulting.bridging-data.com; S3 + CloudFront UI |
 
 Documents from all apps share one schema (`documents` / `chunks` / `embeddings`), scoped by
 `app_name`. Framework Q&A uses `app_name="consulting"`; the **Organizational Memory** (below)
@@ -152,7 +154,7 @@ Engagement "knowledge" step (consulting.relevant-knowledge):
 The product is organised as a **Discovery → Analysis → Delivery** workflow. Each
 capability is a named, versioned **skill** (single-shot, grounded, cited, language-faithful).
 
-**13 skills** across three layers, invoked by name (not similarity):
+**14 skills** across three layers, invoked by name (not similarity):
 
 | Layer | Tool | Endpoint |
 |---|---|---|
@@ -163,6 +165,7 @@ capability is a named, versioned **skill** (single-shot, grounded, cited, langua
 | Analysis | Requirements (classification + INVEST stories + quality flags) | `POST /api/v1/consulting/structure/requirements` |
 | Analysis | Refine analysis (delta) · Consultant assessment (preliminary) | via engagements / `run` |
 | Analysis | **Match patterns** (resembling project archetypes, to validate) · **Relevant knowledge** (cross-source references) | via engagements `generate` |
+| Analysis | **Compliance maturity** (NIST AI RMF / GDPR-DSG / AWS WA Security + prioritized gap analysis) | `POST /api/v1/consulting/run` (`compliance.assess-maturity`) |
 | Delivery | Roadmap + agile backlog | `POST /api/v1/consulting/structure/roadmap` |
 | — | List skills (with layer) | `GET /api/v1/consulting/skills` |
 
@@ -176,6 +179,11 @@ blocks above; endpoints under `POST/GET/PATCH/DELETE /api/v1/consulting/engageme
 UI routes mirror the layers: `/dashboard` (tools grouped by layer), `/chat` (Framework Q&A),
 `/discovery` · `/analysis` · `/delivery` (tabbed tool pages — a shared `ToolTabs` component), and
 `/engagements`. Deep-link a specific tool with `?tab=<id>` (e.g. `/discovery?tab=stakeholders`).
+
+**Compliance.** The platform both *offers* a compliance-maturity skill and *documents its own*
+posture: `research/compliance_mapping.md` (evidence-based NIST AI RMF / GDPR-DSG / AWS WA Security
+assessment) plus `compliance/{MODEL_CARD, ROPA, SECURITY_CONTROLS}.md`. Honest posture — Demo-Ready;
+the single hard gate before real client data is an isolated engagement DB (gap **G1**).
 
 ---
 
@@ -540,6 +548,28 @@ deploy/freshness deferred.
 **Result**
 5 Organizational-Memory sources, deterministic cross-source references, idempotent refresh, layer-based
 navigation; 70 tests green. Still local — deploy is the next step.
+
+### 20260701
+
+**Deployed private (single-admin) + compliance**
+- **Live:** private deploy at consulting.bridging-data.com — Cognito single-admin (no self-signup),
+  API Gateway JWT authorizer, Lambda-in-VPC → shared `db-v2`, S3 + CloudFront, custom domain (wildcard
+  ACM). 23/26 frameworks ingested (3 oversized PDFs skipped), 66 skills + 7 projects (Organizational
+  Memory) live.
+- **Deploy hardening (found via end-to-end verification):** app owns CORS + a no-auth `OPTIONS`
+  preflight route (the API-GW authorizer had blocked preflight → 401); warm-container asyncio fix
+  (dispose the pool + run maintenance on a dedicated loop, so `asyncio.run` doesn't leave later Mangum
+  requests without an event loop); per-file framework ingest to isolate oversized PDFs; engagement
+  schema bootstrap DSN (`ssl`→`sslmode`).
+- **Compliance skill** `compliance.assess-maturity` (14th skill, Analysis layer): NIST AI RMF /
+  GDPR-DSG / AWS WA Security maturity + prioritized gap analysis; surfaced as a Dashboard tile + Analysis tab.
+- **Self-assessment docs:** `research/compliance_mapping.md` (transparent ✅/⚠️/❌ scoring — NIST 78 % /
+  GDPR 64 % / AWS WA 67 %) + `compliance/{MODEL_CARD, ROPA, SECURITY_CONTROLS}.md`. Honest posture:
+  Demo-Ready; the single hard gate before real client data is an isolated engagement DB (gap G1).
+
+**Result**
+14 skills; live private demo verified end-to-end (auth, Q&A + citations, engagements, OM, export);
+compliance posture documented; 72 tests green.
 
 ---
 

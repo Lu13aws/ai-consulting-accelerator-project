@@ -342,6 +342,7 @@ a taxonomy for the UI/workflow, not separate systems.
 | `consulting.consultant-assessment` | v1.0 | analysis | AI-assisted assessment + prioritisation (risks/impact/quick wins) — preliminary, to validate |
 | `consulting.match-patterns` | v1.0 | analysis | Matches the engagement against a curated project-archetype catalog (`data/patterns/`); surfaces 0–2 resembling patterns with confidence as commonly-observed items **to validate** — never a label, never a solution |
 | `consulting.relevant-knowledge` | v1.0 | analysis | Formats already-retrieved internal knowledge (prior skills, `app_name="skills"`) as **cited references that may be relevant** — connects existing knowledge, never invents it; references, not recommendations |
+| `compliance.assess-maturity` | v1.0 | analysis | Assess AI project compliance maturity (NIST AI RMF / GDPR-DSG / AWS WA Security) → prioritised gap analysis + recommended artifacts. First skill in the `compliance.` namespace; an assist for a qualified advisor, not a legal determination |
 | `consulting.structure-roadmap` | v1.0 | delivery | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
 
 **Input contract:** structured user context (defined required fields per skill)
@@ -442,8 +443,13 @@ Same as ai-platform-project-v1:
 - Stakeholder Analysis Assistant
 - Roadmap Generator (Now/Next/Later + agile backlog) — grounded in roadmapping + Scrum
 - Next.js demo UI (sidebar app, dark platform theme) at consulting.bridging-data.com
-- **Public demo — no auth in Phase 1** (Cognito deferred; UI calls the public
-  `/api/v1/consulting/*` routes)
+- **Deployed private (single-admin)** — Cognito pool with ONE admin user (self-signup off);
+  API Gateway JWT authorizer on `$default` (only `/health` + CORS-preflight `OPTIONS` public);
+  app owns CORS. Not public: the owner logs in and screen-shares to present. (Earlier plan of a
+  public no-auth demo was superseded.)
+- **Compliance:** the `compliance.assess-maturity` skill + a self-assessment of this repo
+  (`research/compliance_mapping.md` + `compliance/{MODEL_CARD,ROPA,SECURITY_CONTROLS}.md`). Honest
+  posture: Demo-Ready; the one hard gate before real client data is an isolated engagement DB.
 
 ### Phase 2 — Practitioner Toolset (optional, 2027)
 
