@@ -154,7 +154,7 @@ Engagement "knowledge" step (consulting.relevant-knowledge):
 The product is organised as a **Discovery → Analysis → Delivery** workflow. Each
 capability is a named, versioned **skill** (single-shot, grounded, cited, language-faithful).
 
-**14 skills** across three layers, invoked by name (not similarity):
+**17 skills** across three layers, invoked by name (not similarity):
 
 | Layer | Tool | Endpoint |
 |---|---|---|
@@ -162,11 +162,14 @@ capability is a named, versioned **skill** (single-shot, grounded, cited, langua
 | Discovery | Business Problem structurer | `POST /api/v1/consulting/structure/problem` |
 | Discovery | Stakeholder analysis (RACI, influence/interest, comms) | `POST /api/v1/consulting/stakeholders` |
 | Discovery | Risks · Assumptions · Open Questions · Hypotheses · Interview Guide | `POST /api/v1/consulting/run` (`{skill, inputs}`) |
+| Discovery | **AI Readiness** (org readiness across data · tech · talent · process · governance) | `POST /run` (`consulting.assess-ai-readiness`) |
 | Analysis | Requirements (classification + INVEST stories + quality flags) | `POST /api/v1/consulting/structure/requirements` |
 | Analysis | Refine analysis (delta) · Consultant assessment (preliminary) | via engagements / `run` |
 | Analysis | **Match patterns** (resembling project archetypes, to validate) · **Relevant knowledge** (cross-source references) | via engagements `generate` |
 | Analysis | **Compliance maturity** (NIST AI RMF / GDPR-DSG / AWS WA Security + prioritized gap analysis) | `POST /api/v1/consulting/run` (`compliance.assess-maturity`) |
+| Analysis | **AI Governance** (EU AI Act risk class + NIST AI RMF gaps — organisational, not technical) | `POST /run` (`consulting.assess-ai-governance`) |
 | Delivery | Roadmap + agile backlog | `POST /api/v1/consulting/structure/roadmap` |
+| Delivery | **Value Articulation** (technical initiative → executive value narrative) | `POST /run` (`consulting.articulate-value`) |
 | — | List skills (with layer) | `GET /api/v1/consulting/skills` |
 
 **Engagements** tie the layers into one stateful case file: multi-round discovery →
@@ -266,15 +269,17 @@ Full bulk ingest of the framework set costs roughly **$2–5** in embeddings (on
 
 ## Quality Eval Harness
 
-`scripts/eval.py` runs golden cases (DE + EN, 16 across the skills) through the **real**
-skills and scores each output. It calls the LLM, so run it on demand (e.g. after a
-prompt/version change), not in CI.
+`scripts/eval.py` runs golden cases (DE + EN, **24** across the skills — incl. the newer
+AI-readiness / value-articulation / AI-governance skills, each with an EN + DE case) through
+the **real** skills and scores each output. It calls the LLM, so run it on demand (e.g. after a
+prompt/version change), not in CI. Filter with `--only <ids>`; list with `--dry-run`.
 
 **Rule-based checks** (`eval_checks.py` — pure, unit-tested): non-empty · language lock
-(output language == input language) · draft disclaimer · structure (headings/table/list) ·
-required sections (EN — DE headings get translated) · preliminary-framing caveats
-(bilingual; guards "AI assists, does not decide") · confidence ranking (hypotheses) ·
-citation integrity (no `[n]` without a matching source).
+(output language == input language) · disclaimer (the shared draft marker **or** a skill-specific
+*"AI-generated … (review/validation/draft)"* notice) · structure (`##` or standalone `**bold**`
+headers, a table, or a bulleted/numbered list) · required sections (EN — DE headings get
+translated) · preliminary-framing caveats (bilingual; guards "AI assists, does not decide") ·
+confidence ranking (hypotheses) · citation integrity (no `[n]` without a matching source).
 
 **Opt-in `--judge`** adds an LLM-as-judge pass scoring **groundedness / relevance /
 citation faithfulness** (1–5) — a soft, advisory signal (warns on <3, never gates the exit
@@ -570,6 +575,20 @@ navigation; 70 tests green. Still local — deploy is the next step.
 **Result**
 14 skills; live private demo verified end-to-end (auth, Q&A + citations, engagements, OM, export);
 compliance posture documented; 72 tests green.
+
+### 20260702
+
+**Three advisory skills + eval coverage**
+- Added `consulting.assess-ai-readiness` (discovery), `consulting.assess-ai-governance` (analysis) and
+  `consulting.articulate-value` (delivery) — same `StructuringSkill` pattern; surfaced as Dashboard
+  tiles + Discovery/Analysis/Delivery tabs; deployed (API + frontend).
+- **Eval harness extended to 24 cases** (each new skill EN + DE, live-verified 6/6). Two harness checks
+  generalised to fit the newer skills: `check_disclaimer` now accepts a skill-specific *"AI-generated
+  … (review/validation/draft)"* notice (not only the shared marker); `check_structure` now counts a
+  standalone `**bold**` header line and numbered lists as structure.
+
+**Result**
+17 skills; 3 new tools live in the UI; eval harness 24 cases (6/6 new pass live); 78 tests green.
 
 ---
 
