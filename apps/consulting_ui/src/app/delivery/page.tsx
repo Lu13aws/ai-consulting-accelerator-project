@@ -28,6 +28,20 @@ export default function DeliveryPage() {
               target_users: f.target_users,
             }),
         },
+        {
+          id: "articulate-value",
+          label: "Value Articulation",
+          fields: [
+            { key: "initiative_description", label: "Initiative", placeholder: "The technical initiative / project to translate into business value…", required: true, rows: 4 },
+            { key: "target_stakeholders", label: "Target stakeholders", placeholder: "Who is this for? e.g. CFO, operations lead, engineering…", required: true, rows: 2 },
+            { key: "current_state_pain", label: "Current-state pain", placeholder: "What hurts today that this addresses?", required: true, rows: 2 },
+            { key: "quantitative_targets", label: "Quantitative targets", placeholder: "Only real figures — time, cost, volume (optional)", required: false, rows: 2 },
+            { key: "qualitative_benefits", label: "Qualitative benefits", placeholder: "Risk, quality, trust… (optional)", required: false, rows: 2 },
+            { key: "timeline", label: "Timeline", placeholder: "e.g. 2 quarters (optional)", required: false, rows: 1 },
+            { key: "industry", label: "Industry", placeholder: "optional", required: false, rows: 1 },
+          ],
+          submit: (f) => api.runSkill("consulting.articulate-value", f),
+        },
       ]}
     />
   );

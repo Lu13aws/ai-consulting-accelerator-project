@@ -51,6 +51,20 @@ export default function DiscoveryPage() {
           fields: [contextField("Describe the project to build a discovery interview guide…")],
           submit: (f) => api.runSkill("consulting.interview-guide", { context: f.context }),
         },
+        {
+          id: "ai-readiness",
+          label: "AI Readiness",
+          fields: [
+            { key: "organization_description", label: "Organisation", placeholder: "Size, industry, how it works today, data/tech maturity…", required: true, rows: 4 },
+            { key: "current_ai_usage", label: "Current AI usage", placeholder: "Any AI/ML in use today? Tools, pilots, or none?", required: true, rows: 2 },
+            { key: "primary_use_case_intent", label: "Intended AI use case", placeholder: "What do you want AI to do first?", required: true, rows: 2 },
+            { key: "industry", label: "Industry", placeholder: "e.g. logistics, healthcare (optional)", required: false, rows: 1 },
+            { key: "team_size", label: "Team size", placeholder: "e.g. 30 people (optional)", required: false, rows: 1 },
+            { key: "existing_data_infrastructure", label: "Data infrastructure", placeholder: "Warehouses, pipelines, ownership… (optional)", required: false, rows: 2 },
+            { key: "regulatory_context", label: "Regulatory context", placeholder: "e.g. GDPR, sector rules (optional)", required: false, rows: 1 },
+          ],
+          submit: (f) => api.runSkill("consulting.assess-ai-readiness", f),
+        },
       ]}
     />
   );

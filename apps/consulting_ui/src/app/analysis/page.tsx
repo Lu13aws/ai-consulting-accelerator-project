@@ -34,6 +34,21 @@ export default function AnalysisPage() {
           ],
           submit: (f) => api.runSkill("compliance.assess-maturity", f),
         },
+        {
+          id: "ai-governance",
+          label: "AI Governance",
+          fields: [
+            { key: "ai_system_description", label: "AI system", placeholder: "What the system does, how it decides, its autonomy level…", required: true, rows: 4 },
+            { key: "deployment_context", label: "Deployment context", placeholder: "e.g. AWS Lambda + pgvector, EU region, internal tool…", required: true, rows: 2 },
+            { key: "user_types", label: "User types", placeholder: "e.g. internal staff, external customers, the public", required: true, rows: 2 },
+            { key: "data_categories", label: "Data categories", placeholder: "e.g. employee data, health, financial, biometric…", required: true, rows: 2 },
+            { key: "existing_policies", label: "Existing policies", placeholder: "Any AI/governance policies already in place (optional)", required: false, rows: 2 },
+            { key: "regulatory_environment", label: "Regulatory environment", placeholder: "e.g. EU AI Act, GDPR, sector rules (optional)", required: false, rows: 1 },
+            { key: "industry", label: "Industry", placeholder: "optional", required: false, rows: 1 },
+            { key: "decision_autonomy_level", label: "Decision autonomy", placeholder: "advisory / human-in-the-loop / autonomous (optional)", required: false, rows: 1 },
+          ],
+          submit: (f) => api.runSkill("consulting.assess-ai-governance", f),
+        },
       ]}
     />
   );

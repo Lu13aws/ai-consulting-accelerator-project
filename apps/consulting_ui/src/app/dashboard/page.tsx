@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Briefcase,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   Gauge,
@@ -10,8 +11,10 @@ import {
   Map,
   MessageSquare,
   Mic,
+  Scale,
   ShieldAlert,
   ShieldCheck,
+  TrendingUp,
   Users,
 } from "lucide-react";
 
@@ -37,6 +40,7 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
       { href: "/discovery?tab=open-questions", label: "Open Questions", icon: HelpCircle, color: "text-sky-400", desc: "Clarification questions to ask before designing a solution." },
       { href: "/discovery?tab=hypotheses", label: "Hypotheses", icon: Lightbulb, color: "text-yellow-400", desc: "Root-cause hypotheses when the cause is not yet known." },
       { href: "/discovery?tab=interview-guide", label: "Interview Guide", icon: Mic, color: "text-purple-400", desc: "A stakeholder discovery interview guide." },
+      { href: "/discovery?tab=ai-readiness", label: "AI Readiness", icon: ClipboardCheck, color: "text-cyan-400", desc: "Org readiness across Data · Technology · Talent · Process · Governance — blockers, first steps, overall signal." },
     ],
   },
   {
@@ -47,6 +51,7 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
       { href: "/analysis?tab=requirements", label: "Requirements Structurer", icon: ListChecks, color: "text-green-400", desc: "Classify requirements (BR/FR/NFR/constraint/…), INVEST user stories, quality flags." },
       { href: "/analysis?tab=assessment", label: "Consultant Assessment", icon: Gauge, color: "text-pink-400", desc: "Initial assessment + prioritisation (risks, impact, quick wins) — preliminary, to validate." },
       { href: "/analysis?tab=compliance", label: "Compliance Maturity", icon: ShieldCheck, color: "text-emerald-400", desc: "Assess AI compliance maturity (NIST AI RMF, GDPR/DSG, AWS Well-Architected Security) — prioritized gap analysis + artifacts." },
+      { href: "/analysis?tab=ai-governance", label: "AI Governance", icon: Scale, color: "text-violet-400", desc: "Governance readiness: EU AI Act risk class + NIST AI RMF (GOVERN/MAP/MEASURE/MANAGE) gaps — organisational, not technical." },
     ],
   },
   {
@@ -55,6 +60,7 @@ const LAYERS: { id: string; title: string; blurb: string; tools: Tool[] }[] = [
     blurb: "Support project planning.",
     tools: [
       { href: "/delivery?tab=roadmap", label: "Roadmap Generator", icon: Map, color: "text-indigo-400", desc: "Now / Next / Later roadmap plus an agile backlog (Epic → Feature → User Story)." },
+      { href: "/delivery?tab=articulate-value", label: "Value Articulation", icon: TrendingUp, color: "text-rose-400", desc: "Translate a technical initiative into an executive value narrative — transformation story, KPI mapping, headline." },
     ],
   },
 ];
