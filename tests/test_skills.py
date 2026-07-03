@@ -23,6 +23,9 @@ EXPECTED_SKILLS = {
     "consulting.match-patterns",
     "consulting.relevant-knowledge",
     "compliance.assess-maturity",
+    "consulting.assess-ai-readiness",
+    "consulting.articulate-value",
+    "consulting.assess-ai-governance",
 }
 
 VALID_LAYERS = {"discovery", "analysis", "delivery"}

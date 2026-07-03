@@ -264,6 +264,53 @@ provided to you, on its own line. Be concise.""",
 )
 
 
+_AI_READINESS = StructuringSkill(
+    name="consulting.assess-ai-readiness",
+    version="1.0",
+    description=(
+        "Assess an organisation's readiness to deploy AI across five dimensions before any "
+        "project is scoped or budgeted."
+    ),
+    required_fields=["organization_description", "current_ai_usage", "primary_use_case_intent"],
+    optional_fields=["industry", "team_size", "existing_data_infrastructure", "regulatory_context"],
+    layer="discovery",
+    retrieval_seed=(
+        "AI readiness assessment organisational maturity data talent governance technology process"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+Assess the organisation's readiness to deploy AI across five dimensions.
+
+For each dimension, assign a readiness level (Low / Medium / High) and give 1–2 sentences of evidence from the input.
+
+Dimensions:
+1. Data — quality, availability, ownership, governance
+2. Technology — infrastructure, API capability, integration maturity
+3. Talent — AI literacy, relevant skills, access to expertise
+4. Process — workflow maturity, documentation, change capacity
+5. Governance — accountability for AI decisions, risk tolerance, policy existence
+
+Then produce:
+
+**Top 3 Blockers**
+The three findings most likely to cause an AI initiative to fail. Be direct.
+
+**Recommended First Steps**
+3–5 concrete actions to take before any AI project is scoped. Ordered by priority.
+
+**Overall Readiness Signal**
+One of: Not Ready / Conditionally Ready / Ready to Pilot
+With a one-sentence rationale. If "Not Ready", state which dimension is the critical blocker.
+
+Rules:
+- If critical blockers exist in Data or Governance, flag explicitly: this organisation is not ready to proceed to project scoping.
+- Do not suggest solutions beyond first steps — that requires a project definition.
+- End with this disclaimer on its own line: "AI-generated readiness assessment — findings require validation with the organisation's leadership and technical teams before any initiative is scoped or funded."
+""",
+)
+
+
 # ── Analysis layer ────────────────────────────────────────────────────────────
 
 _REQUIREMENTS = StructuringSkill(
@@ -541,6 +588,51 @@ Rules:
 )
 
 
+_ARTICULATE_VALUE = StructuringSkill(
+    name="consulting.articulate-value",
+    version="1.0",
+    description=(
+        "Translate a technical initiative into a business value narrative for executive "
+        "communication."
+    ),
+    required_fields=["initiative_description", "target_stakeholders", "current_state_pain"],
+    optional_fields=["quantitative_targets", "qualitative_benefits", "timeline", "industry"],
+    layer="delivery",
+    retrieval_seed=(
+        "business value articulation ROI benefits realization KPI executive communication "
+        "transformation"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+Translate the technical initiative into a business value narrative suitable for executive communication.
+
+Produce the following sections:
+
+**Transformation Story**
+One paragraph. "From [current state] to [target state]." Concrete, jargon-free.
+Describe what changes in the business — not what the technology does.
+
+**KPI Mapping**
+Table with three columns: Business Metric | How the Initiative Affects It | How to Measure It
+Include 4–6 metrics. Cover both quantitative (time, cost, volume) and qualitative (risk, quality, trust) where relevant.
+If the input does not support a metric, omit it — do not fabricate targets.
+
+**Stakeholder Benefit Summary**
+One bullet per stakeholder group (from target_stakeholders). One sentence: what they gain, in their language.
+Use role-appropriate framing: executive = outcomes and risk; operational = efficiency and clarity; technical = capability and reliability.
+
+**Headline Value Statement**
+One sentence. Suitable for a slide title or email subject. Outcome-oriented, not feature-oriented.
+
+Rules:
+- Do not invent quantitative targets (e.g. "saves 40% of time") unless the input explicitly states them.
+- Do not claim business outcomes that require assumptions not in the input — flag them as "to be validated."
+- End with this disclaimer on its own line: "AI-generated value narrative — draft only. All figures, targets, and claims require validation with the project team and relevant stakeholders before use in any formal communication."
+""",
+)
+
+
 # ── Compliance (analysis layer) ───────────────────────────────────────────────
 
 _COMPLIANCE_MATURITY = StructuringSkill(
@@ -598,6 +690,61 @@ Rules:
 )
 
 
+_AI_GOVERNANCE = StructuringSkill(
+    name="consulting.assess-ai-governance",
+    version="1.0",
+    description=(
+        "Assess whether sufficient governance structures exist for a planned AI system, grounded "
+        "in NIST AI RMF and EU AI Act risk categories."
+    ),
+    required_fields=["ai_system_description", "deployment_context", "user_types", "data_categories"],
+    optional_fields=["existing_policies", "regulatory_environment", "industry", "decision_autonomy_level"],
+    layer="analysis",
+    retrieval_seed=(
+        "AI governance NIST AI RMF EU AI Act risk management accountability compliance "
+        "organisational controls"
+    ),
+    system_prompt=f"""\
+{_LANG_RULE}
+
+Assess the governance readiness of the described AI system.
+
+**EU AI Act Risk Classification**
+Classify the system into one of: Unacceptable Risk / High Risk / Limited Risk / Minimal Risk
+State which EU AI Act criteria drove the classification (1–2 sentences).
+If the input is insufficient to classify, state this explicitly — do not guess.
+
+**NIST AI RMF Assessment**
+Assess the four functions. For each, state: status (In Place / Partial / Missing) and the key evidence or gap.
+- GOVERN — policies, accountability, risk tolerance, acceptable use
+- MAP — stakeholder identification, harm identification, data provenance
+- MEASURE — monitoring, confidence scoring, bias evaluation, cost controls
+- MANAGE — incident response, retention/deletion, human review gates
+
+**Must-Have Governance Gaps**
+The gaps that must be addressed before the system is deployed or demonstrated to clients.
+Be specific — name the missing artifact, role, or control.
+
+**Recommended Governance Gaps**
+Gaps that should be addressed before any real client data or production use.
+
+**Artifacts to Create (priority order)**
+Table: Artifact | Purpose | Effort (Low/Medium/High)
+List only what is genuinely missing — do not pad.
+
+**Current Governance Maturity**
+One of: Not Governed / Demo-Ready / Customer-Ready / Production-Ready
+With a one-sentence rationale.
+
+Rules:
+- Governance assessment covers organisational structures and accountability — not technical controls.
+  (Technical controls belong in compliance.assess-maturity — refer the user there if that is what they need.)
+- Do not claim EU AI Act or NIST compliance — this is a gap analysis, not a certification.
+- End with this disclaimer on its own line: "AI-generated governance assessment — requires review by a qualified AI governance or legal advisor before use in any formal compliance, procurement, or regulatory context."
+""",
+)
+
+
 SKILLS: dict[str, StructuringSkill] = {
     s.name: s
     for s in (
@@ -608,13 +755,16 @@ SKILLS: dict[str, StructuringSkill] = {
         _OPEN_QUESTIONS,
         _HYPOTHESES,
         _INTERVIEW_GUIDE,
+        _AI_READINESS,
         _REQUIREMENTS,
         _REFINE_ANALYSIS,
         _ASSESSMENT,
         _MATCH_PATTERNS,
         _RELEVANT_KNOWLEDGE,
         _ROADMAP,
+        _ARTICULATE_VALUE,
         _COMPLIANCE_MATURITY,
+        _AI_GOVERNANCE,
     )
 }
 
