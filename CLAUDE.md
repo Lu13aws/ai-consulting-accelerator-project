@@ -337,13 +337,16 @@ a taxonomy for the UI/workflow, not separate systems.
 | `consulting.open-questions` | v1.1 | discovery | Context-aware clarification questions (reference what the user said) |
 | `consulting.generate-hypotheses` | v1.1 | discovery | Evidence-grounded, confidence-ranked root-cause hypotheses |
 | `consulting.interview-guide` | v1.0 | discovery | Stakeholder discovery interview guide |
+| `consulting.assess-ai-readiness` | v1.0 | discovery | Assess an organisation's AI readiness across five dimensions (data, technology, talent, process, governance) → top blockers, first steps, overall readiness signal — before any project is scoped |
 | `consulting.structure-requirements` | v1.4 | analysis | Goal vs requirement vs user-story split; INVEST stories; suggested capabilities (to validate); quality flags |
 | `consulting.refine-analysis` | v1.0 | analysis | Delta-aware refinement (Updated Findings) from answers — used by engagement round 2 |
 | `consulting.consultant-assessment` | v1.0 | analysis | AI-assisted assessment + prioritisation (risks/impact/quick wins) — preliminary, to validate |
 | `consulting.match-patterns` | v1.0 | analysis | Matches the engagement against a curated project-archetype catalog (`data/patterns/`); surfaces 0–2 resembling patterns with confidence as commonly-observed items **to validate** — never a label, never a solution |
 | `consulting.relevant-knowledge` | v1.0 | analysis | Formats already-retrieved internal knowledge (prior skills, `app_name="skills"`) as **cited references that may be relevant** — connects existing knowledge, never invents it; references, not recommendations |
 | `compliance.assess-maturity` | v1.0 | analysis | Assess AI project compliance maturity (NIST AI RMF / GDPR-DSG / AWS WA Security) → prioritised gap analysis + recommended artifacts. First skill in the `compliance.` namespace; an assist for a qualified advisor, not a legal determination |
+| `consulting.assess-ai-governance` | v1.0 | analysis | Governance readiness for a planned AI system: EU AI Act risk class + NIST AI RMF (GOVERN/MAP/MEASURE/MANAGE) gaps + artifacts. Organisational structures/accountability — a gap analysis, not certification (technical controls → `compliance.assess-maturity`) |
 | `consulting.structure-roadmap` | v1.0 | delivery | Now/Next/Later roadmap + agile backlog (Epic → Feature → User Story) |
+| `consulting.articulate-value` | v1.0 | delivery | Translate a technical initiative into an executive value narrative: transformation story, KPI mapping, stakeholder benefits, headline value statement — never invents figures |
 
 **Input contract:** structured user context (defined required fields per skill)
 **Output contract:** defined Markdown format, with framework citations

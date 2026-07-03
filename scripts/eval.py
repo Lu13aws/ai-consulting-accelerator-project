@@ -235,6 +235,95 @@ CASES: list[dict] = [
             ),
         },
     },
+    # ── newer skills: AI readiness / value articulation / AI governance (EN + DE) ──
+    {
+        "id": "ai-readiness-en",
+        "skill": "consulting.assess-ai-readiness",
+        "lang": "en",
+        "inputs": {
+            "organization_description": (
+                "A 30-person logistics SME, mostly manual back-office, no data team; "
+                "spreadsheets everywhere."
+            ),
+            "current_ai_usage": "None beyond off-the-shelf email spam filtering.",
+            "primary_use_case_intent": "Automate order-intake document processing.",
+        },
+        "sections": ["Top 3 Blockers", "Recommended First Steps", "Overall Readiness Signal"],
+    },
+    {
+        "id": "ai-readiness-de",
+        "skill": "consulting.assess-ai-readiness",
+        "lang": "de",
+        "inputs": {
+            "organization_description": (
+                "Ein Logistik-Mittelständler mit 30 Mitarbeitenden, überwiegend manuelles "
+                "Backoffice, kein Datenteam."
+            ),
+            "current_ai_usage": "Keine, außer Standard-Spamfilter.",
+            "primary_use_case_intent": "Automatisierung der Auftragserfassung aus Dokumenten.",
+        },
+    },
+    {
+        "id": "articulate-value-en",
+        "skill": "consulting.articulate-value",
+        "lang": "en",
+        "inputs": {
+            "initiative_description": (
+                "Replace manual order-intake with an AI document-processing pipeline that "
+                "extracts structured orders from PDFs and emails."
+            ),
+            "target_stakeholders": "COO, operations team lead, finance",
+            "current_state_pain": "Slow, error-prone manual data entry; delayed fulfilment.",
+        },
+        "sections": ["Transformation Story", "KPI Mapping", "Headline Value Statement"],
+    },
+    {
+        "id": "articulate-value-de",
+        "skill": "consulting.articulate-value",
+        "lang": "de",
+        "inputs": {
+            "initiative_description": (
+                "Manuelle Auftragserfassung durch eine KI-Dokumentenverarbeitung ersetzen, die "
+                "strukturierte Aufträge aus PDFs und E-Mails extrahiert."
+            ),
+            "target_stakeholders": "COO, Teamleitung Operations, Finanzen",
+            "current_state_pain": "Langsame, fehleranfällige manuelle Dateneingabe; verzögerte Auslieferung.",
+        },
+    },
+    {
+        "id": "ai-governance-en",
+        "skill": "consulting.assess-ai-governance",
+        "lang": "en",
+        "inputs": {
+            "ai_system_description": (
+                "An LLM assistant that drafts HR-policy answers for employees; advisory only, "
+                "a human sends the final reply."
+            ),
+            "deployment_context": "AWS Lambda + pgvector, EU region, internal tool.",
+            "user_types": "internal employees",
+            "data_categories": "employee names, internal HR documents",
+        },
+        "sections": [
+            "EU AI Act Risk Classification",
+            "NIST AI RMF Assessment",
+            "Must-Have Governance Gaps",
+            "Current Governance Maturity",
+        ],
+    },
+    {
+        "id": "ai-governance-de",
+        "skill": "consulting.assess-ai-governance",
+        "lang": "de",
+        "inputs": {
+            "ai_system_description": (
+                "Ein LLM-Assistent, der HR-Richtlinien-Antworten für Mitarbeitende entwirft; nur "
+                "beratend, ein Mensch versendet die finale Antwort."
+            ),
+            "deployment_context": "AWS Lambda + pgvector, EU-Region, internes Tool.",
+            "user_types": "interne Mitarbeitende",
+            "data_categories": "Mitarbeiternamen, interne HR-Dokumente",
+        },
+    },
 ]
 
 # Preliminary-framing markers per skill (bilingual). A passing output hedges with at

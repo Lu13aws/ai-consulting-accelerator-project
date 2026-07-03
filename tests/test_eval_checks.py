@@ -32,7 +32,14 @@ def test_language_lock():
 
 def test_disclaimer():
     assert check_disclaimer(f"body\n\n{DRAFT_DISCLAIMER}").passed
+    # skill-specific "AI-generated …" review/validation notices also count
+    assert check_disclaimer(
+        'body\n\n"AI-generated readiness assessment — findings require validation with leadership."'
+    ).passed
+    assert check_disclaimer('x\n\n"AI-generated value narrative — draft only."').passed
     assert not check_disclaimer("body without the marker").passed
+    # "AI-generated" alone (no review/validation/draft clause) is not a disclaimer
+    assert not check_disclaimer("AI-generated summary of the current situation.").passed
 
 
 def test_sections():

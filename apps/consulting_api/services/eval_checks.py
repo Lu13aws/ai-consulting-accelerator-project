@@ -35,9 +35,17 @@ def check_language(artifact: str, expected_lang: str) -> CheckResult:
     return CheckResult("language_lock", got == expected_lang, f"expected {expected_lang}, got {got}")
 
 
+# Newer skills (compliance/assessment/value) define their own closing disclaimer instead of the
+# shared DRAFT_DISCLAIMER — all begin "AI-generated …" and carry a review/validation/draft clause.
+_DISCLAIMER_KEYS = ("review", "validat", "draft")
+
+
 def check_disclaimer(artifact: str) -> CheckResult:
-    ok = DRAFT_DISCLAIMER in artifact
-    return CheckResult("disclaimer", ok, "present" if ok else "draft disclaimer missing")
+    low = artifact.lower()
+    ok = DRAFT_DISCLAIMER in artifact or (
+        "ai-generated" in low and any(k in low for k in _DISCLAIMER_KEYS)
+    )
+    return CheckResult("disclaimer", ok, "present" if ok else "draft / AI-generated disclaimer missing")
 
 
 def check_sections(artifact: str, required: list[str] | None) -> CheckResult:
