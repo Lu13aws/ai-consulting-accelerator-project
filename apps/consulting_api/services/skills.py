@@ -38,6 +38,9 @@ class StructuringSkill:
     # Anchor query used to retrieve grounding chunks from the consulting corpus.
     retrieval_seed: str = ""
     system_prompt: str = ""
+    # True when the skill's own prompt already ends with a tailored disclaimer — the service then
+    # does NOT also append the shared DRAFT_DISCLAIMER (avoids a double disclaimer).
+    owns_disclaimer: bool = False
 
 
 # ── Discovery layer ───────────────────────────────────────────────────────────
@@ -267,6 +270,7 @@ provided to you, on its own line. Be concise.""",
 _AI_READINESS = StructuringSkill(
     name="consulting.assess-ai-readiness",
     version="1.0",
+    owns_disclaimer=True,
     description=(
         "Assess an organisation's readiness to deploy AI across five dimensions before any "
         "project is scoped or budgeted."
@@ -591,6 +595,7 @@ Rules:
 _ARTICULATE_VALUE = StructuringSkill(
     name="consulting.articulate-value",
     version="1.0",
+    owns_disclaimer=True,
     description=(
         "Translate a technical initiative into a business value narrative for executive "
         "communication."
@@ -638,6 +643,7 @@ Rules:
 _COMPLIANCE_MATURITY = StructuringSkill(
     name="compliance.assess-maturity",
     version="1.0",
+    owns_disclaimer=True,
     description=(
         "Assess AI project compliance maturity against NIST AI RMF, GDPR/DSG, and AWS "
         "Well-Architected Security Pillar. Produces a prioritized gap analysis with "
@@ -693,6 +699,7 @@ Rules:
 _AI_GOVERNANCE = StructuringSkill(
     name="consulting.assess-ai-governance",
     version="1.0",
+    owns_disclaimer=True,
     description=(
         "Assess whether sufficient governance structures exist for a planned AI system, grounded "
         "in NIST AI RMF and EU AI Act risk categories."

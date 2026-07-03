@@ -311,11 +311,18 @@ spaces. If the problem implies no technical/software solution at all, output not
             f"## {field}\n{value}" for field, value in request.inputs.items() if value.strip()
         )
 
+        # Skills that end with their own tailored disclaimer (owns_disclaimer) must not also be
+        # told to append the shared DRAFT_DISCLAIMER — that produced a double disclaimer.
+        closing = (
+            "Produce the structured artifact now."
+            if skill.owns_disclaimer
+            else f"Produce the structured artifact now. End with this exact disclaimer line:\n{DRAFT_DISCLAIMER}"
+        )
         user_content = (
             f"Write the entire response in {lang_name}.\n\n"
             + (f"Framework context:\n{context}\n\n" if context else "")
             + f"User input:\n{input_block}\n\n"
-            + f"Produce the structured artifact now. End with this exact disclaimer line:\n{DRAFT_DISCLAIMER}"
+            + closing
         )
 
         # 4. Call the LLM
@@ -324,9 +331,10 @@ spaces. If the problem implies no technical/software solution at all, output not
             system_prompt=skill.system_prompt,
         )
 
-        # 5. Guarantee the draft disclaimer is present (CLAUDE.md: always mark as draft)
+        # 5. Guarantee a draft disclaimer is present (CLAUDE.md: always mark as draft). Skills that
+        # define their own closing disclaimer are trusted to emit it — don't stack the shared one.
         artifact = llm_response.content
-        if DRAFT_DISCLAIMER not in artifact:
+        if not skill.owns_disclaimer and DRAFT_DISCLAIMER not in artifact:
             artifact = f"{artifact.rstrip()}\n\n{DRAFT_DISCLAIMER}"
 
         sources = [

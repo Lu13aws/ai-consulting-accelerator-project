@@ -73,3 +73,16 @@ def test_system_prompt_enforces_language_and_disclaimer(skill: StructuringSkill)
 def test_draft_disclaimer_marks_output_as_review_draft():
     assert "draft" in DRAFT_DISCLAIMER.lower()
     assert "human review" in DRAFT_DISCLAIMER.lower()
+
+
+def test_owns_disclaimer_flag():
+    # skills whose prompt ends with a tailored disclaimer are flagged (service skips the shared one)
+    for name in (
+        "compliance.assess-maturity",
+        "consulting.assess-ai-readiness",
+        "consulting.articulate-value",
+        "consulting.assess-ai-governance",
+    ):
+        assert get_skill(name).owns_disclaimer, name
+    # classic skills rely on the shared DRAFT_DISCLAIMER appended by the service
+    assert not get_skill("consulting.structure-business-problem").owns_disclaimer
