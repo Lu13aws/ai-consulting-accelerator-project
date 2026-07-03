@@ -76,16 +76,16 @@ def check_citations(artifact: str, n_sources: int) -> CheckResult:
 
 
 def check_structure(artifact: str) -> CheckResult:
-    """Language-agnostic structure check: the output is structured Markdown (headings,
-    a table, or a list) — not a wall of prose. Complements `sections`, which only runs
-    on English cases. Lenient on shape: some skills use a table (risks) instead of many
-    headings."""
+    """Language-agnostic structure check: the output is structured Markdown — not a wall of prose.
+    Complements `sections`, which only runs on English cases. Lenient on shape: skills variously use
+    `##` headings, a standalone `**bold**` header line, a table (risks/KPIs), or a bulleted/numbered
+    list (e.g. the readiness skill's five numbered dimensions + bold section headers)."""
     headings = bullets = table_rows = 0
     for raw in artifact.splitlines():
-        line = raw.lstrip()
-        if re.match(r"#{1,6}\s", line):
+        line = raw.strip()
+        if re.match(r"#{1,6}\s", line) or re.fullmatch(r"\*\*[^*]+\*\*:?", line):
             headings += 1
-        elif line[:2] in ("- ", "* "):
+        elif line[:2] in ("- ", "* ") or re.match(r"\d+[.)]\s", line):
             bullets += 1
         elif line.startswith("|"):
             table_rows += 1

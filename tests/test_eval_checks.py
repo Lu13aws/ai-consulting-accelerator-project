@@ -59,6 +59,8 @@ def test_structure():
     assert check_structure("## A\nbody\n## B\nmore").passed  # 2 headings
     assert check_structure("## Risks\n| a | b |\n| c | d |").passed  # 1 heading + table
     assert check_structure("- one\n- two\n- three").passed  # a list
+    assert check_structure("**Top 3 Blockers**\ntext\n**Next Steps**\nmore").passed  # bold headers
+    assert check_structure("1. Data — low\n2. Tech — medium\n3. Talent — low").passed  # numbered list
     assert not check_structure("just a wall of prose with no headings at all").passed
 
 
