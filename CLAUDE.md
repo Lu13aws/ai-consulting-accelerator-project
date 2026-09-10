@@ -387,7 +387,7 @@ All system prompts must:
 
 ## Engineering Principles
 
-Inherited from ai-platform-project-v1:
+Inherited from the global `~/.claude/CLAUDE.md` (plus, from the shared `aiplatform` package):
 - Modular and reusable architecture
 - SHA-256 dedup — never re-embed unchanged documents
 - Source attribution on all generated content
@@ -426,7 +426,7 @@ Consulting-specific additions:
 
 ## Preferred Working Style
 
-Same as ai-platform-project-v1:
+Per the global `~/.claude/CLAUDE.md`; the essentials:
 - Show plan before executing complex tasks
 - Practical and production-oriented outputs
 - Bullet points over paragraphs
