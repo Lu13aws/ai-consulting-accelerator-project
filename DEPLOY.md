@@ -13,12 +13,15 @@ A **private** demo: one Cognito admin user logs in; there is no public sign-up. 
 
 All scripts are idempotent — safe to re-run. They create **billable** AWS resources.
 
-### Current deployment (eu-central-1, account <AWS_ACCOUNT_ID>)
+### Current deployment (eu-central-1, account `<AWS_ACCOUNT_ID>`)
+
+Resource identifiers in this document are placeholders (`<API_ID>`, `<COGNITO_USER_POOL_ID>`, …); replace
+them with the values of your own deployment.
 
 | | |
 |---|---|
-| UI | https://consulting.bridging-data.com (also https://<CLOUDFRONT_DOMAIN>) |
-| API | https://<API_ID>.execute-api.eu-central-1.amazonaws.com |
+| UI | https://consulting.bridging-data.com (also https://`<CLOUDFRONT_DOMAIN>`) |
+| API | https://`<API_ID>`.execute-api.eu-central-1.amazonaws.com |
 | Cognito | pool `<COGNITO_USER_POOL_ID>`, client `<COGNITO_CLIENT_ID>`, admin `<OWNER_EMAIL>` |
 | CloudFront / S3 | dist `<CLOUDFRONT_DISTRIBUTION_ID>`, bucket `ai-consulting-ui` |
 | Route 53 zone | `bridging-data.com` `<HOSTED_ZONE_ID>`; ACM `*.bridging-data.com` (us-east-1) |
@@ -101,9 +104,10 @@ aws lambda invoke --function-name $FN --payload '{"action":"status"}' \
   --cli-binary-format raw-in-base64-out --region $R /tmp/status.json && cat /tmp/status.json
 ```
 
-Reset the serving config when done (API Gateway caps web requests at 30s anyway):
+Reset the serving config when done (API Gateway caps web requests at 30s anyway). Serve with **2048 MB**,
+not 1024 MB (see the cold-start note below):
 ```bash
-aws lambda update-function-configuration --function-name $FN --timeout 120 --memory-size 1024 --region $R
+aws lambda update-function-configuration --function-name $FN --timeout 120 --memory-size 2048 --region $R
 ```
 
 ## 4. Frontend (S3 + CloudFront)
@@ -124,7 +128,7 @@ alias + cert to the distribution and a Route 53 alias record:
 import boto3
 cf = boto3.client("cloudfront"); r53 = boto3.client("route53")
 DIST="<CLOUDFRONT_DISTRIBUTION_ID>"; DOMAIN="consulting.bridging-data.com"; CFDNS="<CLOUDFRONT_DOMAIN>"
-CERT="arn:aws:acm:us-east-1:<AWS_ACCOUNT_ID>:certificate/<ACM_CERT_ID>"; ZONE="<HOSTED_ZONE_ID>"
+CERT="<ACM_CERT_ARN>"; ZONE="<HOSTED_ZONE_ID>"
 c = cf.get_distribution_config(Id=DIST); cfg, etag = c["DistributionConfig"], c["ETag"]
 cfg["Aliases"] = {"Quantity": 1, "Items": [DOMAIN]}
 cfg["ViewerCertificate"] = {"ACMCertificateArn": CERT, "SSLSupportMethod": "sni-only", "MinimumProtocolVersion": "TLSv1.2_2021"}
@@ -165,8 +169,13 @@ distribution to redeploy before HTTPS serves.
 - **Oversized PDFs.** `aws_well_architected`, `requirements_engineering_management` (74 MB), `uml_modellierung_v4`
   exceed 600s/3008MB and are skipped — acceptable for the demo. To ingest them: raise the limits if the
   account allows, or split them first (see the "3 large frameworks" follow-up).
+- **Cold start.** With 1024 MB the Lambda init phase took 13.5 s and hit AWS's 10 s init limit, so the first
+  request after an idle period returned HTTP 500 (measured 2026-09-26). At 2048 MB a cold start takes about 4 s
+  and the first request succeeds; 3008 MB is not faster.
+- **Secrets are Lambda environment variables** (`OPENAI_API_KEY`, `DATABASE_URL`, `ALEMBIC_DATABASE_URL`), i.e.
+  stored in plaintext in the function configuration, not in Secrets Manager (gap G8).
 - **Engagement DB** falls back to `DATABASE_URL` (shared db-v2) when `CONSULTING_ENGAGEMENT_DB_URL` is
-  unset — fine for a single-admin demo with no real client data; use an isolated DB before any real
-  client engagements. The engagement schema bootstrap needs a psycopg2 DSN (`sslmode=`, not `ssl=`).
+  unset. This is the case in production (checked 2026-09-26) — fine for a single-admin demo with no real client
+  data; use an isolated DB before any real client engagements (gap G1). The engagement schema bootstrap needs a psycopg2 DSN (`sslmode=`, not `ssl=`).
 - **Shared db-v2:** `documents_content_hash_key` is globally unique, so a README/PDF already indexed
   under another `app_name` is skipped (3 of 7 projects collide with platform copies).

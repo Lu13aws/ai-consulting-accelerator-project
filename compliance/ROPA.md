@@ -2,7 +2,7 @@
 
 **Regulation:** GDPR Art. 30 / Swiss DSG
 **System:** AI Consulting Accelerator — private single-admin demo (consulting.bridging-data.com)
-**Last updated:** July 2026
+**Last updated:** July 2026; retention, storage and counts re-checked against the code and the AWS account on 2026-09-26 (see `CLAIMS_VERIFICATION.md`)
 
 > This ROPA reflects a **portfolio demo**. By design it processes **no third-party personal data**:
 > the corpus is public industry standards and the owner's own internal knowledge, and the only account
@@ -37,7 +37,7 @@
 ## Processing Activity 2 — Structuring Skills
 | Field | Detail |
 |---|---|
-| Purpose | Turn free-text business context into framework-aligned drafts (14 named skills) |
+| Purpose | Turn free-text business context into framework-aligned drafts (17 named skills) |
 | Legal basis | Legitimate interest (demo) |
 | Data categories | User-entered business situation text (may contain personal data **if the user includes it**) |
 | Data subjects | Whoever the user chooses to describe (admin-controlled; test data only today) |
@@ -52,7 +52,7 @@
 | Legal basis | Legitimate interest (demo); a real client engagement would require a DPA |
 | Data categories | User-entered situation + answer text (free text — potentially personal/confidential if included) |
 | Data subjects | Admin's test scenarios today; potentially client stakeholders if real data were entered |
-| Storage | `consulting_engagements` table (JSONB `turns`/`extras`). **Currently in the shared `db-v2` — not isolated (gap G1).** Encrypted at rest, VPC-private |
+| Storage | `consulting_engagements` table (JSONB `turns`/`extras`). **Currently in the shared `db-v2` — not isolated (gap G1); `CONSULTING_ENGAGEMENT_DB_URL` is not set in production (checked 2026-09-26).** Encrypted at rest, VPC-private |
 | Retention | Kept until deleted via the lifecycle **delete** (GDPR Art. 17 erasure); no automated retention rule |
 | Recipients / processors | OpenAI (round content sent for inference) |
 
@@ -67,6 +67,17 @@
 | Retention | Permanent; refreshed by re-ingest (SHA-256 dedup); no client data ever mixed in |
 | Recipients / processors | OpenAI (embeddings + a one-line description generation) |
 
+## Processing Activity 5 — Administrator account
+| Field | Detail |
+|---|---|
+| Purpose | Sign-in of the single administrator (Cognito user pool, JWT) |
+| Legal basis | Legitimate interest (access control of the own demo) |
+| Data categories | E-mail address and user ID of the administrator |
+| Data subjects | The owner only |
+| Storage | Amazon Cognito, eu-central-1; self-registration is disabled, one account |
+| Retention | Until the account is deleted by the owner |
+| Recipients / processors | AWS only (not sent to OpenAI) |
+
 ---
 
 ## Sub-Processors
@@ -74,7 +85,7 @@
 | Processor | Purpose | Location | Notes |
 |---|---|---|---|
 | OpenAI | Embeddings (`text-embedding-3-small`) + LLM inference (`gpt-4o-mini`) | US | Receives query/prompt/chunk content at request time; API usage not used for training per OpenAI API terms |
-| Amazon Web Services | Hosting (Lambda, API Gateway, RDS, S3, CloudFront, Cognito) | eu-central-1 (Frankfurt) | Data at rest stays in-region; encrypted |
+| Amazon Web Services | Hosting (Lambda, API Gateway, RDS, S3, CloudFront, Cognito, Route 53, ECR, CloudWatch) | eu-central-1 (Frankfurt); CloudFront edge locations and Route 53 are global, the CloudFront certificate is in us-east-1 | Application data at rest stays in eu-central-1; encrypted |
 
 ---
 

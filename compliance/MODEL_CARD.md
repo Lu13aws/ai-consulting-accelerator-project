@@ -2,7 +2,7 @@
 
 **System:** AI-assisted BA/RE/PM consulting workflow (Discovery → Analysis → Delivery)
 **Deployment:** Private single-admin demo — consulting.bridging-data.com
-**Last updated:** July 2026
+**Last updated:** July 2026; statements re-checked on 2026-09-26 (see `CLAIMS_VERIFICATION.md`)
 **Owner:** <OWNER_EMAIL>
 
 > The platform uses third-party foundation models via API; it does **not** train, fine-tune, or host
@@ -27,7 +27,7 @@
 
 ### LLM — Structuring Skills & Engagements
 - **Model:** OpenAI `gpt-4o-mini` (default)
-- **Purpose:** Run the 14 named, versioned skills (`services/skills.py`) — business-problem,
+- **Purpose:** Run the 17 named, versioned skills (`services/skills.py`) — business-problem,
   stakeholders, risks, requirements (INVEST), roadmap, consultant assessment, compliance maturity,
   etc. — and the multi-round engagement flow (discovery → analysis → conclude).
 - **Behaviour:** Structured input → structured Markdown draft; output language locked to input;
@@ -77,7 +77,7 @@
   draft disclaimer, structure, required sections, preliminary-framing caveats, citation integrity.
 - **Opt-in LLM-as-judge:** `eval.py --judge` scores groundedness / relevance / citation faithfulness
   (advisory, non-gating).
-- **Monitoring:** CloudWatch logs for the Lambda; per-run LLM/embedding call caps; cost target < $5/mo.
+- **Monitoring:** CloudWatch logs for the Lambda (30-day retention, no alarms); per-run LLM/embedding call caps; API Gateway throttling. The app itself adds little cost; the shared NAT gateway and RDS instance dominate the account bill.
 - Run the harness after any prompt or model change (it calls the real LLM — a few cents per run).
 
 ## 6. Provider Configuration
@@ -87,7 +87,7 @@
 | `LLM_PROVIDER` | `openai` |
 | `OPENAI_CHAT_MODEL` | `gpt-4o-mini` |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` (1536-dim) |
-| Secrets | API key from the Lambda environment (never committed; see `SECURITY_CONTROLS.md`) |
+| Secrets | API key from the Lambda environment (plaintext in the function configuration, never committed; see `SECURITY_CONTROLS.md`, gap G8) |
 
 OpenAI acts as an Art. 28 processor for prompt/query content sent for inference — see `ROPA.md`.
 

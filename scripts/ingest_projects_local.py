@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -36,15 +37,19 @@ from sqlalchemy import select
 
 APP_NAME = "projects"
 
+# Folder that holds the project folders. Defaults to the folder that contains this repository (sibling
+# layout); set PROJECTS_ROOT to point somewhere else.
+PROJECTS_ROOT = Path(os.environ.get("PROJECTS_ROOT", Path(__file__).resolve().parents[2]))
+
 # (path, slug, label) — slugs are the user's friendly project names (clean, human-readable).
 PROJECTS = [
-    (r"C:\Users\lucia\airbnb-project", "airbnb", "Airbnb Project"),
-    (r"C:\Users\lucia\health_project", "health", "Health Project"),
-    (r"C:\Users\lucia\git_projects\ai-consulting-accelerator-project", "ai-consulting", "AI Consulting Project"),
-    (r"C:\Users\lucia\git_projects\ai-platform-project-v1", "ai-platform", "AI Platform Project"),
-    (r"C:\Users\lucia\git_projects\aws-data-engineering-project", "energy", "Energy Project"),
-    (r"C:\Users\lucia\git_projects\aws-real-time-analytics-project", "maritime", "Maritime Project"),
-    (r"C:\Users\lucia\git_projects\myporfolio-website-project", "website", "Portfolio Website"),
+    (PROJECTS_ROOT.parent / "airbnb-project", "airbnb", "Airbnb Project"),
+    (PROJECTS_ROOT.parent / "health_project", "health", "Health Project"),
+    (PROJECTS_ROOT / "ai-consulting-accelerator-project", "ai-consulting", "AI Consulting Project"),
+    (PROJECTS_ROOT / "ai-platform-project-v1", "ai-platform", "AI Platform Project"),
+    (PROJECTS_ROOT / "aws-data-engineering-project", "energy", "Energy Project"),
+    (PROJECTS_ROOT / "aws-real-time-analytics-project", "maritime", "Maritime Project"),
+    (PROJECTS_ROOT / "myporfolio-website-project", "website", "Portfolio Website"),
 ]
 
 _DESC_SYSTEM = """\

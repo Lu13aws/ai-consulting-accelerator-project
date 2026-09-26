@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -36,9 +37,12 @@ from sqlalchemy import select
 
 APP_NAME = "skills"
 
-# Default source: the sibling personal toolkit's skills/ tree.
+# Default source: the sibling personal toolkit's skills/ tree (override with SKILLS_DIR).
 DEFAULT_SKILLS_DIR = Path(
-    r"C:\Users\lucia\git_projects\personal-data-engineering-toolkit\skills"
+    os.environ.get(
+        "SKILLS_DIR",
+        Path(__file__).resolve().parents[2] / "personal-data-engineering-toolkit" / "skills",
+    )
 )
 
 

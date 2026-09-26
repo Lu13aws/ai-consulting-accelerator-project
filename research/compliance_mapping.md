@@ -4,7 +4,7 @@
 (consulting.bridging-data.com)
 **Data:** Public framework PDFs (IREB, BABOK, BPMN, PMBOK, Scrum…), own internal knowledge
 (skills, project READMEs), and user-entered engagement text (business situations)
-**Assessment date:** July 2026
+**Assessment date:** July 2026; re-verified against the code and the AWS account on 2026-09-26 (see `../compliance/CLAIMS_VERIFICATION.md`)
 **Assessed by:** Evidence-based review of this repo against the three target frameworks (mirrors the
 approach in `../ai-platform-project-v1/research/phase6/compliance_mapping_v2.md`)
 **Frameworks:** NIST AI RMF · GDPR / Swiss DSG · AWS Well-Architected (Security Pillar)
@@ -31,8 +31,10 @@ client engagement data is stored (CLAUDE.md already states this).
 | Framework | Coverage (implemented) | After the 3 compliance docs |
 |---|---|---|
 | NIST AI RMF | 78 % (15.5 / 20) | 80 % (16 / 20) |
-| GDPR / Swiss DSG | 64 % (11.5 / 18) | 75 % (13.5 / 18) |
-| AWS Well-Architected (Security) | 67 % (10 / 15) | 70 % (10.5 / 15) |
+| GDPR / Swiss DSG | 64 % (11.5 / 18) | 72 % (13 / 18) |
+| AWS Well-Architected (Security) | 67 % (10 / 15) | 63 % (9.5 / 15) |
+
+*Corrected 2026-09-26: the GDPR "after docs" value was 13.5 / 18 but the tables only support 13 / 18 (Art. 30: three partial rows become done). The AWS value was 10.5 / 15 with no supporting row; the docs do not change it, and the credentials control drops to partial (plaintext environment variables), giving 9.5 / 15.*
 
 **Scoring method (transparent, not hand-waved):** each figure is the sum over the requirement tables
 below of ✅ Done = 1, ⚠️ Partial = 0.5, ❌ Missing = 0, divided by the N requirements assessed for that
@@ -52,7 +54,7 @@ figures are modest by design.
 | Edge auth enforcement | API Gateway JWT authorizer on `$default`; only `GET /health` + CORS-preflight `OPTIONS` are public (`scripts/deploy.py` ROUTE_CONFIGS) | Auth before the app runs |
 | Network isolation | Lambda + RDS in `<VPC_ID>`; `ai-platform-db-v2` `PubliclyAccessible=false` | Infrastructure protection |
 | Encryption | RDS `StorageEncrypted=true`; TLS/HTTPS everywhere; DB `ssl/sslmode=require` | GDPR Art.32, WA Data Protection |
-| Secrets management | `.env` + `infra/deploy.env` gitignored; injected as Lambda env at deploy | No hardcoded credentials |
+| Secrets management | `.env` + `infra/deploy.env` gitignored, never committed; injected as Lambda environment variables at deploy (plaintext in the function configuration, gap G8) | No hardcoded credentials in git |
 | Source attribution | `SourceReference{chunk_id, source_uri, score}` returned per answer (`api/schemas.py`, `consulting_service.py`) | NIST MEASURE, transparency |
 | Grounded generation | RAG-only answers over cited chunks; prompts forbid unsupported claims | Hallucination mitigation |
 | Output-language lock | `_LANG_RULE` in every skill (`services/skills.py`); enforced by tests | Faithfulness, EU-language use |
@@ -148,7 +150,7 @@ figures are modest by design.
 | Control | Status | Evidence |
 |---|---|---|
 | Least-privilege IAM role | ✅ Done | `ai-consulting-lambda-role` (basic + VPC execution) |
-| No hardcoded credentials | ✅ Done | Secrets from Lambda env / gitignored `deploy.env` |
+| No hardcoded credentials | ⚠️ Partial | Not in git (history checked); but stored as plaintext Lambda environment variables instead of Secrets Manager (Gap G8) |
 | End-user authentication | ✅ Done | Cognito JWT authorizer on all `/api/v1/*` routes |
 | Single-admin access | ✅ Done | Self-signup disabled; one admin user |
 
@@ -157,7 +159,7 @@ figures are modest by design.
 |---|---|---|
 | RDS in private VPC | ✅ Done | `<VPC_ID>`, no public endpoint |
 | Security groups scoped | ✅ Done | DB reachable from the Lambda SG (platform-managed) |
-| WAF on API Gateway | ❌ Missing | No rate limiting / WAF (Gap G3) |
+| WAF on API Gateway | ❌ Missing | No WAF (cannot be attached to HTTP APIs); default route throttling of 10 req/s, burst 20 since 2026-09-26 (Gap G3) |
 | Physical data isolation | ⚠️ Partial | **Shared `db-v2`; consulting + engagements not isolated** (Gap G1) |
 
 ### Data Protection
@@ -171,9 +173,9 @@ figures are modest by design.
 | Control | Status | Evidence |
 |---|---|---|
 | CloudWatch logs | ✅ Done | Lambda logs (`/aws/lambda/ai-consulting-api`) |
-| Cost alerts / caps | ✅ Done | Per-run caps; low-cost serverless footprint |
+| Cost alerts / caps | ✅ Done | Per-run caps; the account has one shared AWS budget (50 USD, exceeded by the platform's fixed costs); no app-specific alert |
 | Application audit trail | ❌ Missing | No audit log (Gap G2) |
-| Infra anomaly detection | ❌ Missing | No GuardDuty/CloudTrail alerts (demo-acceptable) |
+| Infra anomaly detection | ❌ Missing | No GuardDuty, no CloudTrail trail, no CloudWatch alarms (demo-acceptable) |
 
 ---
 
@@ -187,11 +189,13 @@ this effort (G4–G6) or demo-acceptable until a scale/data trigger fires (G2, G
 |---|---|---|---|---|
 | **G1** | Consulting **and** engagement data share `db-v2` (only `app_name`-scoped), not an isolated DB | **Critical (latent)** — low now (admin test data only), critical the moment real data lands | …a real client's engagement text (potentially personal/confidential) is entered | Point `CONSULTING_ENGAGEMENT_DB_URL` at a **separate encrypted RDS** in-VPC; migrate the `consulting_engagements` table. **Hard gate before any real engagement.** |
 | G2 | No application audit log (who did what, when) | Medium | …a second user exists, or real data is processed (GDPR Art.32/Art.30 accountability) | Add an `audit_log` (user, action, resource, ip, ts) — mirror the platform's `AuditLog` |
-| G3 | No WAF / rate limiting on the API | Medium | …the API is exposed beyond the single admin, or abuse/cost spikes appear | Attach AWS WAF (rate limiting + managed rules) to the API Gateway |
+| G3 | No WAF (not available for HTTP APIs); default route throttling only (10 req/s, burst 20) | Low | …the API is exposed beyond the single admin, or abuse/cost spikes appear | Attach AWS WAF (rate limiting + managed rules) to the API Gateway |
 | G4 | No model card | Low | — (documentation) | ✅ Resolved by `compliance/MODEL_CARD.md` (this effort) |
 | G5 | No records of processing (ROPA) | Low | — (documentation) | ✅ Resolved by `compliance/ROPA.md` (this effort) |
 | G6 | No controls-evidence map | Low | — (documentation) | ✅ Resolved by `compliance/SECURITY_CONTROLS.md` (this effort) |
 | G7 | No bias assessment, incident-response, or 72h breach process | Low | …the platform moves toward production / real users | Document when production-bound (out of the core-3 doc scope) |
+| G8 | Secrets are plaintext Lambda environment variables, not Secrets Manager | Medium | …before real data, or before the account is shared | Store `OPENAI_API_KEY` and the DB URLs in Secrets Manager and load them at cold start |
+| G9 | No MFA on the Cognito admin; no CloudTrail trail, alarms or API access logs | Medium | …a second user exists, or real data is processed | Enable TOTP MFA; create a trail; alarms on Lambda errors and 5xx |
 
 ---
 

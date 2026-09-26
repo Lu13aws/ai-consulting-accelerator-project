@@ -28,3 +28,6 @@ Thumbs.db
 # Local deploy infra (environment-specific subnet/SG ids) and secret env
 infra/vpc_config.json
 infra/deploy.env
+
+# Generated exports
+README.pdf

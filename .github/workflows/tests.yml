@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # The project depends on the sibling repository (path dependency ../ai-platform-project-v1),
+      # so both repositories are checked out next to each other. No secrets are needed.
+      - uses: actions/checkout@v6
+        with:
+          path: ai-consulting-accelerator-project
+
+      - uses: actions/checkout@v6
+        with:
+          repository: Lu13aws/ai-platform-project-v1
+          path: ai-platform-project-v1
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: ai-consulting-accelerator-project/uv.lock
+
+      - name: Install dependencies
+        working-directory: ai-consulting-accelerator-project
+        run: uv sync --locked
+
+      - name: Unit tests
+        working-directory: ai-consulting-accelerator-project
+        run: uv run pytest -q
+
+      - name: Ruff
+        if: ${{ !cancelled() }} # report lint even when a test failed
+        working-directory: ai-consulting-accelerator-project
+        run: uv run ruff check .

@@ -1,5 +1,11 @@
 # AI Consulting Accelerator
 
+[![Tests](https://github.com/Lu13aws/ai-consulting-accelerator-project/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Lu13aws/ai-consulting-accelerator-project/actions/workflows/tests.yml)
+
+> **Personal portfolio project.** Built and operated by one person on a personal AWS account as a hands-on reference for AI-assisted business analysis and requirements engineering. The compliance documents in [`/compliance`](compliance/) and [`research/compliance_mapping.md`](research/compliance_mapping.md) (NIST AI RMF, GDPR/DSG and AWS Well-Architected mappings, including coverage percentages) are **self-assessments**, not audits or certifications. Resource identifiers such as `<AWS_ACCOUNT_ID>` or `<API_ID>` are placeholders; replace them with your own values (see `.env.example` and [DEPLOY.md](DEPLOY.md)).
+>
+> **In 60 seconds:** a retrieval-augmented knowledge base of business-analysis, requirements-engineering and project-management standards (pgvector), 17 named skills that turn free-text situations into framework-grounded drafts with citations, and a multi-round engagement flow (Discovery → Analysis → Delivery). It runs as a **private single-admin deployment** (Cognito, no public sign-up), not as a public demo. It depends on the sibling repository [ai-platform-project-v1](https://github.com/Lu13aws/ai-platform-project-v1) (path dependency `../ai-platform-project-v1`), so both repositories must be cloned next to each other.
+
 AI-assisted consulting workflow built on a retrieval-augmented knowledge base of
 industry frameworks. The system ingests BA/RE/PM standards (IREB, BABOK, BPMN, PMBOK,
 Scrum, roadmapping) into a pgvector store, answers framework questions with citations,
@@ -128,8 +134,9 @@ Initial situation  (UI /engagements)
 → GET  /engagements/{id}/report        export everything as one file (?format=md|docx|pdf)
 → PATCH / DELETE /engagements/{id}     lifecycle: rename, archive (hidden by default), delete
 
-Persisted via a DEDICATED engine (CONSULTING_ENGAGEMENT_DB_URL) — an isolated DB in prod,
-never the shared public db-v2 (confidential client data).
+Persisted via a DEDICATED engine (CONSULTING_ENGAGEMENT_DB_URL). In production that variable is **not set yet**,
+so engagements currently live in the shared `db-v2` (gap G1); an isolated DB is required before any real
+client data.
 ```
 
 **Organizational Memory (cross-source references — "connect existing knowledge, never invent"):**
@@ -185,7 +192,8 @@ UI routes mirror the layers: `/dashboard` (tools grouped by layer), `/chat` (Fra
 
 **Compliance.** The platform both *offers* a compliance-maturity skill and *documents its own*
 posture: `research/compliance_mapping.md` (evidence-based NIST AI RMF / GDPR-DSG / AWS WA Security
-assessment) plus `compliance/{MODEL_CARD, ROPA, SECURITY_CONTROLS}.md`. Honest posture — Demo-Ready;
+assessment) plus `compliance/{MODEL_CARD, ROPA, SECURITY_CONTROLS}.md`; `compliance/CLAIMS_VERIFICATION.md` records how each
+statement was checked against the code and the AWS account. Honest posture — Demo-Ready;
 the single hard gate before real client data is an isolated engagement DB (gap **G1**).
 
 ---
@@ -219,7 +227,7 @@ cd ../ai-platform-project-v1 && docker compose up -d postgres
 APP_ENV, DATABASE_URL (postgresql+asyncpg://…), ALEMBIC_DATABASE_URL,
 LLM_PROVIDER, OPENAI_API_KEY, OPENAI_CHAT_MODEL, OPENAI_EMBEDDING_MODEL,
 MAX_CHUNKS_PER_DOC,
-CONSULTING_ENGAGEMENT_DB_URL   # engagement persistence; isolated DB in prod, falls back to DATABASE_URL locally
+CONSULTING_ENGAGEMENT_DB_URL   # engagement persistence; falls back to DATABASE_URL (shared db-v2) when unset, which is the case in prod today (gap G1)
 ```
 
 UI env (`apps/consulting_ui/.env.local`): `NEXT_PUBLIC_API_URL` (defaults to
@@ -490,7 +498,7 @@ Nine skills across three layers; 38 tests green; cross-lingual output drift fixe
 - Stateful engagements: kickoff → **multi-round** answer loop (append-only `turns`, each round
   = delta-aware Updated Findings + next, deeper open questions) → **conclude** (classified
   requirements + a preliminary consultant assessment). Persisted via a dedicated engine
-  (`CONSULTING_ENGAGEMENT_DB_URL`) — isolated DB in prod, never the shared public `db-v2`.
+  (`CONSULTING_ENGAGEMENT_DB_URL`) — meant to be an isolated DB; not configured in production yet, so it falls back to the shared `db-v2` (gap G1).
 - Added skills `refine-analysis` (delta) and `consultant-assessment` (preliminary); hardened
   prompts (hypotheses ranked by confidence, context-aware questions, goal/requirement/story split).
 - **Context hand-off:** generate Roadmap / Stakeholder Analysis from an engagement's context,
@@ -559,7 +567,7 @@ navigation; 70 tests green. Still local — deploy is the next step.
 **Deployed private (single-admin) + compliance**
 - **Live:** private deploy at consulting.bridging-data.com — Cognito single-admin (no self-signup),
   API Gateway JWT authorizer, Lambda-in-VPC → shared `db-v2`, S3 + CloudFront, custom domain (wildcard
-  ACM). 23/26 frameworks ingested (3 oversized PDFs skipped), 66 skills + 7 projects (Organizational
+  ACM). 23/26 frameworks ingested (3 oversized PDFs skipped), 66 skills + 4 projects (3 of 7 project READMEs collide with platform copies; Organizational
   Memory) live.
 - **Deploy hardening (found via end-to-end verification):** app owns CORS + a no-auth `OPTIONS`
   preflight route (the API-GW authorizer had blocked preflight → 401); warm-container asyncio fix
