@@ -35,9 +35,11 @@ jobs:
           enable-cache: true
           cache-dependency-glob: ai-consulting-accelerator-project/uv.lock
 
+      # Not --locked: uv.lock embeds the dependency list of the sibling path dependency, so it goes stale
+      # whenever ai-platform-project-v1 changes its dependencies. uv re-resolves only what changed.
       - name: Install dependencies
         working-directory: ai-consulting-accelerator-project
-        run: uv sync --locked
+        run: uv sync
 
       - name: Unit tests
         working-directory: ai-consulting-accelerator-project
