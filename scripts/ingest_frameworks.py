@@ -268,8 +268,15 @@ def main() -> None:
         files = files[: args.limit]
 
     if not files:
-        print("No ingestible files found.")
-        sys.exit(0)
+        # Only the folder branch can reach here empty: --file already exits above if the single
+        # file is missing, and a --limit of 0 is nonsensical, so this means the framework PDFs
+        # simply haven't been placed under data/ yet.
+        print(
+            f"No ingestible files found under {folder}.\n"
+            "The framework PDFs are not part of this repository (copyright) — see data/README.md "
+            "for the expected sources and where to place them before running this script."
+        )
+        sys.exit(1)
 
     exit_code = asyncio.run(run(files, data_root, args.dry_run))
     sys.exit(exit_code)

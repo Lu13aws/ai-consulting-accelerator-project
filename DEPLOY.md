@@ -33,6 +33,9 @@ them with the values of your own deployment.
 
 - Docker running; AWS CLI authenticated (`aws sts get-caller-identity`); region `eu-central-1`.
 - Sibling repo at `../ai-platform-project-v1` (provides `aiplatform` + the VPC config).
+- Framework PDFs placed under `data/` — not part of this repository (copyright); see
+  [`data/README.md`](data/README.md) for the list and where to obtain each one. Step 3 below fails
+  with a clear error if this is skipped.
 - VPC config (Lambda lands in subnets that can reach db-v2):
   ```bash
   mkdir -p infra && cp ../ai-platform-project-v1/infra/vpc_config.json infra/
