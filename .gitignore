@@ -35,3 +35,6 @@ README.pdf
 # Third-party framework corpus (copyright) — provide locally, never commit; see data/README.md
 /data/*/
 !/data/patterns/
+
+# Local-only security notes (not for the public repo)
+research/repository-review-report.md
