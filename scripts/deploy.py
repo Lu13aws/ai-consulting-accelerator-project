@@ -251,7 +251,7 @@ def create_or_update_lambda(lambda_client, role_arn: str, image_uri: str,
             ImageConfig={"Command": [HANDLER]},
             Environment=env_vars,
             Timeout=120,
-            MemorySize=1024,
+            MemorySize=2048,
             VpcConfig=vpc_config,
         )
         return existing["Configuration"]["FunctionArn"]
@@ -265,7 +265,7 @@ def create_or_update_lambda(lambda_client, role_arn: str, image_uri: str,
             ImageConfig={"Command": [HANDLER]},
             Environment=env_vars,
             Timeout=120,
-            MemorySize=1024,
+            MemorySize=2048,
             VpcConfig=vpc_config,
         )
         lambda_client.get_waiter("function_active").wait(FunctionName=FUNCTION_NAME)
